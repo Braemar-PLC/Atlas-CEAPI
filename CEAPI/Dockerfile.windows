@@ -9,13 +9,14 @@ SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 WORKDIR C:/app
 
 # Install Java 17 on the Windows base image.
-RUN Invoke-WebRequest -Uri "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip" -OutFile "C:\jdk17.zip"; \
-    Expand-Archive -Path "C:\jdk17.zip" -DestinationPath "C:\"; \
-    $jdkRoot = (Get-ChildItem "C:\" -Directory | Where-Object { $_.Name -like 'jdk-*' } | Sort-Object Name | Select-Object -First 1).FullName; \
+RUN $jdkZip = 'C:\jdk17.zip'; \
+    Invoke-WebRequest -Uri 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip' -OutFile $jdkZip; \
+    Expand-Archive -Path $jdkZip -DestinationPath 'C:\'; \
+    $jdkRoot = Get-ChildItem 'C:\' -Directory | Where-Object { $_.Name -like 'jdk-*' } | Sort-Object Name | Select-Object -First 1 | ForEach-Object { $_.FullName }; \
     [System.Environment]::SetEnvironmentVariable('JAVA_HOME', $jdkRoot, 'Machine'); \
     $envPath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine'); \
     [System.Environment]::SetEnvironmentVariable('Path', "$envPath;$jdkRoot\bin", 'Machine'); \
-    Remove-Item "C:\jdk17.zip" -Force
+    Remove-Item $jdkZip -Force
 
 # Copy project sources and libs into the image.
 COPY . C:/app
