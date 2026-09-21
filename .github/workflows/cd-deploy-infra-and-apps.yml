@@ -3,7 +3,7 @@ name: CD - Deploy infra and apps
 on:
   workflow_dispatch:
   push:
-    branches: [ 'dev' ]
+    branches: [ 'Dev' ]
 
 jobs:
   deploy:

@@ -523,6 +523,7 @@ Thumbs.db
 
 # JAR/WAR/EAR artifacts (optional)
 *.jar
+!CEAPI/gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 

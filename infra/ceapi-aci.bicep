@@ -135,6 +135,13 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
         workspaceKey: logAnalytics.listKeys().primarySharedKey
       }
     }
+    imageRegistryCredentials: [
+      {
+        server: acr.properties.loginServer
+        username: acr.listCredentials().username
+        password: acr.listCredentials().passwords[0].value
+      }
+    ]
     ipAddress: {
       type: 'Public'
       ports: [

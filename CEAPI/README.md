@@ -33,13 +33,14 @@ resync
 | ICE_HOST      | Yes      | —         | ICE host e.g. cm.dataservices.theice.com |
 | ICE_USERNAME  | Yes      | —         | ICE username                     |
 | ICE_PASSWORD  | Yes      | —         | ICE password                     |
-| ICE_SYMBOLS   | No       | TFM 26J-ICN | Comma-separated symbol list    |
+| SYMBOLS       | No       | TFM 26J-ICN | Comma-separated symbol list    |
 | WS_PORT       | No       | 9001      | WebSocket server port            |
 
 ## Setup
 
-1. Copy all JARs from `jstandard_SDK/lib` into a `libs/` folder next to `build.gradle`
-2. Set environment variables - create or edit .env file in root with the following:
+1. Copy all required ICE/JStandard JARs into the existing `lib/` folder next to `build.gradle`
+2. Stage the native ICE SDK DLLs into `CEAPI/bin/` so `PortLib_64VC17.dll` and `dbcapi_64VC17.dll` sit directly under that folder
+3. Set environment variables - create or edit `.env` file in the CEAPI root with the following:
 
     ICE_HOST=cm*.dataservices.theice.com
     ICE_USERNAME=Braemar_CEAPI
@@ -47,11 +48,13 @@ resync
     SYMBOLS="GWM 26J-ICE,TFM 26J-ICN,TFM 26K-ICN,TFM 26M-ICN,TFM 26N-ICN,TFM 26Q-ICN,TFM 26U-ICN,TFM 26V-ICN,TFM 26X-ICN,TFM 26Z-ICN,TFM 27F-ICN,TFM 27G-ICN,TFM 27H-ICN"
     WS_PORT=9002
 
-3. Run:
+4. Run:
 
 ```bash / powershell
 ./gradlew run
 ```
+
+If you build the Windows container, make sure `CEAPI/gradle/wrapper/gradle-wrapper.jar` is committed to GitHub. The container build fails fast if the wrapper JAR or required native DLLs are missing from the build context.
 
 ## Tests
 

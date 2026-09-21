@@ -1,39 +1,38 @@
 # Dockerfile for CEAPI (Windows container)
-# Build context: the CEAPI directory. Copy the ICE native DLLs from:
-# C:\Users\Satyend.Appiah\OneDrive - Braemar plc\Documents\DELTA Drive\Scripts\Azure Deployments\Atlas\Atlas-main\Atlas-main\Java_SDK_01_031_0001
-# into CEAPI\bin\ before building.
+# Build context: the CEAPI directory.
+# Stage the ICE native DLLs into CEAPI\bin\ before building.
 
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
-SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
+SHELL ["powershell", "-NoLogo", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop';"]
 
-WORKDIR C:\app
+WORKDIR C:/app
 
 # Install Java 17 on the Windows base image.
-RUN $jdkZip = 'C:\jdk17.zip'; \
-    Invoke-WebRequest -Uri 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip' -OutFile $jdkZip; \
-    Expand-Archive -Path $jdkZip -DestinationPath 'C:\'; \
-    $jdkRoot = Get-ChildItem 'C:\' -Directory | Where-Object { $_.Name -like 'jdk-*' } | Sort-Object Name | Select-Object -First 1 | ForEach-Object { $_.FullName }; \
-    [System.Environment]::SetEnvironmentVariable('JAVA_HOME', $jdkRoot, 'Machine'); \
-    $envPath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine'); \
-    $newPath = $envPath + ';' + $jdkRoot + '\bin'; \
-    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Machine'); \
+RUN $ProgressPreference = 'SilentlyContinue'; `
+    $jdkZip = 'C:\\jdk17.zip'; `
+    Invoke-WebRequest -Uri 'https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip' -OutFile $jdkZip; `
+    Expand-Archive -Path $jdkZip -DestinationPath 'C:\\'; `
+    $jdkRoot = (Get-ChildItem 'C:\\' -Directory | Where-Object { $_.Name -like 'jdk-*' } | Sort-Object Name | Select-Object -First 1).FullName; `
+    if (-not $jdkRoot) { throw 'JDK 17 installation folder not found after extraction.' }; `
+    if (Test-Path 'C:\\jdk-17') { Remove-Item 'C:\\jdk-17' -Recurse -Force }; `
+    Move-Item -Path $jdkRoot -Destination 'C:\\jdk-17'; `
     Remove-Item $jdkZip -Force
 
-# Copy project sources and libs into the image.
-COPY . C:\app
+ENV JAVA_HOME=C:\jdk-17
+ENV PATH=C:\jdk-17\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\
+ENV JAVA_TOOL_OPTIONS=-Djna.library.path=C:\app\bin
 
-# Ensure native libraries are present at runtime under C:\app\bin.
-# Copy PortLib_64VC17.dll and dbcapi_64VC17.dll from the local SDK folder into CEAPI\bin\ first.
-COPY bin/ C:\app\bin
+# Copy project sources, Gradle wrapper, CEAPI JARs, and staged native DLLs into the image.
+COPY . ./
 
-# Build the project using Gradle. This produces classes/jars under build/.
-RUN cd C:\app && .\gradlew.bat --no-daemon build -x test
+# Fail fast with actionable errors when required build/runtime artifacts are missing.
+RUN if (-not (Test-Path 'C:\\app\\gradle\\wrapper\\gradle-wrapper.jar')) { throw 'CEAPI/gradle/wrapper/gradle-wrapper.jar is missing from the build context. Commit it to Git before building the container.' }; `
+    if (-not (Test-Path 'C:\\app\\bin\\PortLib_64VC17.dll')) { throw 'CEAPI/bin/PortLib_64VC17.dll is missing. Stage the ICE SDK native DLLs into CEAPI/bin before building the container.' }; `
+    if (-not (Test-Path 'C:\\app\\bin\\dbcapi_64VC17.dll')) { throw 'CEAPI/bin/dbcapi_64VC17.dll is missing. Stage the ICE SDK native DLLs into CEAPI/bin before building the container.' }
 
-# Expose the websocket port.
+# Build an installable distribution so runtime dependencies are laid out predictably.
+RUN .\gradlew.bat --no-daemon installDist -x test
+
 EXPOSE 9002
 
-# Set JNA library path and run CEAPI.
-ENV JAVA_TOOL_OPTIONS="-Djna.library.path=C:\\app\\bin"
-
-# Run the main class directly on the assembled classpath.
-ENTRYPOINT ["powershell", "-Command", "java -cp 'build\\libs\\*;lib\\*' com.braemar.ceapi.Main"]
+ENTRYPOINT ["C:\\app\\build\\install\\ceapi\\bin\\ceapi.bat"]

@@ -36,6 +36,23 @@ jobs:
         run: |
           az acr show -n "$env:ACR_NAME" -g "$env:RESOURCE_GROUP" | Out-Null
 
+      - name: Validate CEAPI build context
+        shell: pwsh
+        run: |
+          $requiredFiles = @(
+            'CEAPI/Dockerfile.windows',
+            'CEAPI/build.gradle',
+            'CEAPI/gradlew.bat',
+            'CEAPI/gradle/wrapper/gradle-wrapper.jar',
+            'CEAPI/bin/PortLib_64VC17.dll',
+            'CEAPI/bin/dbcapi_64VC17.dll'
+          )
+          foreach ($path in $requiredFiles) {
+            if (-not (Test-Path $path)) {
+              throw "Required build artifact missing: $path"
+            }
+          }
+
       - name: Login to ACR
         shell: pwsh
         run: |
@@ -45,7 +62,7 @@ jobs:
         shell: pwsh
         run: |
           $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
-          docker build -f CEAPI/Dockerfile.windows -t $image CEAPI
+          docker build --pull -f CEAPI/Dockerfile.windows -t $image CEAPI
 
       - name: Push CEAPI image to ACR
         shell: pwsh
