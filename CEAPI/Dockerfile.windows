@@ -6,7 +6,7 @@
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
-WORKDIR C:/app
+WORKDIR C:\app
 
 # Install Java 17 on the Windows base image.
 RUN $jdkZip = 'C:\jdk17.zip'; \
@@ -20,14 +20,14 @@ RUN $jdkZip = 'C:\jdk17.zip'; \
     Remove-Item $jdkZip -Force
 
 # Copy project sources and libs into the image.
-COPY . C:/app
+COPY . C:\app
 
 # Ensure native libraries are present at runtime under C:\app\bin.
 # Copy PortLib_64VC17.dll and dbcapi_64VC17.dll from the local SDK folder into CEAPI\bin\ first.
-COPY bin/ C:/app/bin/
+COPY bin/ C:\app\bin\
 
 # Build the project using Gradle. This produces classes/jars under build/.
-RUN .\gradlew.bat --no-daemon build -x test
+RUN cd C:\app && .\gradlew.bat --no-daemon build -x test
 
 # Expose the websocket port.
 EXPOSE 9002
