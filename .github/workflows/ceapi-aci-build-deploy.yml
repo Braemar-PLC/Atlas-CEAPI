@@ -6,6 +6,8 @@ on:
     branches: [ Dev ]
     paths:
       - 'CEAPI/**'
+      - 'infra/ceapi-aci.bicep'
+      - 'infra/ceapi-aci-README.md'
       - '.github/workflows/ceapi-aci-build-deploy.yml'
 
 jobs:
@@ -21,6 +23,10 @@ jobs:
       LOCATION: 'uksouth'
       CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
       CEAPI_IMAGE_TAG: ${{ github.sha }}
+      ICE_HOST: ${{ secrets.ICE_HOST }}
+      ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
+      ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
+      ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
 
     steps:
       - name: Checkout repository
@@ -34,7 +40,15 @@ jobs:
       - name: Ensure ACR exists
         shell: pwsh
         run: |
-          az acr show -n "$env:ACR_NAME" -g "$env:RESOURCE_GROUP" | Out-Null
+          az acr show -n "$env:ACR_NAME" -g "$env:RESOURCE_GROUP" 1>$null 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            az acr create `
+              --name "$env:ACR_NAME" `
+              --resource-group "$env:RESOURCE_GROUP" `
+              --location "$env:LOCATION" `
+              --sku Basic `
+              --admin-enabled true | Out-Null
+          }
 
       - name: Validate CEAPI build context
         shell: pwsh
@@ -70,6 +84,24 @@ jobs:
           $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
           docker push $image
 
+      - name: Preview ACI deployment
+        shell: pwsh
+        run: |
+          $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
+          az deployment group what-if `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --template-file infra/ceapi-aci.bicep `
+            --parameters `
+              location="$env:LOCATION" `
+              acrName="$env:ACR_NAME" `
+              prefix='atlas' `
+              containerImage="$image" `
+              ceapiContainerGroupName="$env:CEAPI_CONTAINER_GROUP" `
+              iceHost="$env:ICE_HOST" `
+              iceUsername="$env:ICE_USERNAME" `
+              icePassword="$env:ICE_PASSWORD" `
+              symbols="$env:ICE_SYMBOLS"
+
       - name: Deploy ACI container group
         shell: pwsh
         run: |
@@ -83,7 +115,25 @@ jobs:
               prefix='atlas' `
               containerImage="$image" `
               ceapiContainerGroupName="$env:CEAPI_CONTAINER_GROUP" `
-              iceHost='${{ secrets.ICE_HOST }}' `
-              iceUsername='${{ secrets.ICE_USERNAME }}' `
-              icePassword='${{ secrets.ICE_PASSWORD }}' `
-              symbols='${{ secrets.ICE_SYMBOLS }}'
+              iceHost="$env:ICE_HOST" `
+              iceUsername="$env:ICE_USERNAME" `
+              icePassword="$env:ICE_PASSWORD" `
+              symbols="$env:ICE_SYMBOLS"
+
+      - name: Show CEAPI container state
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          az container show `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --name "$env:CEAPI_CONTAINER_GROUP" `
+            --query "{state:instanceView.state, ip:ipAddress.ip, fqdn:ipAddress.fqdn}" `
+            --output table
+
+      - name: Show CEAPI container logs on failure
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          az container logs `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --name "$env:CEAPI_CONTAINER_GROUP"

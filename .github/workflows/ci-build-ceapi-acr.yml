@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'CEAPI/**'
+      - '.github/workflows/ci-build-ceapi-acr.yml'
     branches: [ 'Dev' ]
 
 jobs:
@@ -26,10 +27,17 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Ensure ACR name
+      - name: Ensure ACR exists
         shell: pwsh
         run: |
-          az acr show -n "$env:ACR_NAME" --resource-group "$env:RESOURCE_GROUP" | Out-Null
+          az acr show -n "$env:ACR_NAME" --resource-group "$env:RESOURCE_GROUP" 1>$null 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            az acr create `
+              --name "$env:ACR_NAME" `
+              --resource-group "$env:RESOURCE_GROUP" `
+              --sku Basic `
+              --admin-enabled true | Out-Null
+          }
 
       - name: Validate CEAPI build context
         shell: pwsh
