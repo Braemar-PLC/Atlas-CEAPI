@@ -24,7 +24,7 @@ COPY . C:\app
 
 # Ensure native libraries are present at runtime under C:\app\bin.
 # Copy PortLib_64VC17.dll and dbcapi_64VC17.dll from the local SDK folder into CEAPI\bin\ first.
-COPY bin/ C:\app\bin\
+COPY bin/ C:\app\bin
 
 # Build the project using Gradle. This produces classes/jars under build/.
 RUN cd C:\app && .\gradlew.bat --no-daemon build -x test
@@ -32,8 +32,8 @@ RUN cd C:\app && .\gradlew.bat --no-daemon build -x test
 # Expose the websocket port.
 EXPOSE 9002
 
-# Set JNA library path so the JStandard SDK can load the native DLLs.
+# Set JNA library path and run CEAPI.
 ENV JAVA_TOOL_OPTIONS="-Djna.library.path=C:\\app\\bin"
 
 # Run the main class directly on the assembled classpath.
-ENTRYPOINT ["powershell", "-Command", "java -Djna.library.path=C:\\app\\bin -cp 'build\\libs\\*;lib\\*' com.braemar.ceapi.Main"]
+ENTRYPOINT ["powershell", "-Command", "java -cp 'build\\libs\\*;lib\\*' com.braemar.ceapi.Main"]
