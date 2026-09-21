@@ -39,8 +39,12 @@ RUN $requiredFiles = @( `
       if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required CEAPI build artifact missing: $path" } `
     }
 
-# Build an installable distribution so runtime dependencies are laid out predictably.
-RUN & 'C:\app\gradlew.bat' --no-daemon installDist -x test
+# Invoke the wrapper JAR directly so the image build does not depend on batch-file path normalization.
+RUN & 'C:\jdk-17\bin\java.exe' `
+      '-Dorg.gradle.appname=gradlew' `
+      '-classpath' 'C:\app\gradle\wrapper\gradle-wrapper.jar' `
+      'org.gradle.wrapper.GradleWrapperMain' `
+      '--no-daemon' 'installDist' '-x' 'test'
 
 EXPOSE 9002
 
