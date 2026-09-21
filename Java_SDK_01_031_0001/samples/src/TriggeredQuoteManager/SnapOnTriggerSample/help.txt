@@ -1,0 +1,165 @@
+------------------------------------------------------------------------------------
+NOTE:  This sample is similar to the QualifiersParsingSample in regard to the
+       type of data it provides.  However, the requests sent to the Snap-on-Trigger  
+       service and the response behavior from the service are very different.
+       
+       The Snap-on-Trigger service allows clients to receive a snapshot of data for
+       one or more instruments each time there is an update to one or more specified
+       fields.  
+       
+       For example: A client may request to receive a snapshot of one or
+       more instruments each time there is a new "settlement" price.  Each time
+       there is a new "settlement" price the Snap-on-Trigger service is "triggered"
+       to deliver a snapshot of data for each symbol associated with that request.       
+       
+       The output of this sample is best viewed in an application like Excel.
+       This can be achieved by using the -disp OFF option and output redirection
+       to file.  See the -disp option below for details.
+------------------------------------------------------------------------------------
+
+USAGE:
+
+   Windows
+   -------
+      java -cp .;JStandardSamples.jar;lib/* TriggeredQuoteEventManager.SnapOnTriggerSample.Main
+                [-h <host> -conn <connectionType>] -u <username> -p <password>]
+                [-m <mode> -s <symbols> -in <filename>]
+                [-name <name> -ids <field IDs>]
+                [-limit <timeLimit> -disp <display>]
+   Linux
+   ------
+      java -cp .:JStandardSamples.jar:lib/* TriggeredQuoteEventManager.SnapOnTriggerSample.Main
+                [-h <host> -conn <connectionType>] -u <username> -p <password>]
+                [-m <mode> -s <symbols> -in <filename>]
+                [-name <name> -ids <field IDs>]
+                [-limit <timeLimit> -disp <display>]
+
+where
+
+   Arg   Value                  Description
+   ---   -----                  -----------
+   -h    <host>                 Specifies the address to use to connect to the ICE 
+                                Data Services network.  
+                                
+                                For example: cm*.dataservices.theice.com
+                                
+   -conn <connectionType>       Specifies the type of connection to use with the ICE Data Services
+                                network.  Valid values include:
+                                
+                                   0 - SOCKTYPE_LEGACY    Uses a non TLS connection.
+                                   1 - SOCKTYPE_TLS       Uses a secure/encrypted socket connection.
+                                   2 - SOCKTYPE_TLS_PLUS  Not yet implemented; reserved for future support.
+                                   
+                                note: Currently, secured TLS connections are not supported for the
+                                      Snap-on-Trigger service. 
+
+   -u    <username>  (required) The username for the account entitled to receive data from 
+                                ICE Data Services. If you do not have one, please contact 
+                                your ICE Data Services representative.
+
+   -p    <password>  (required) The password for the account entitled to receive data from 
+                                ICE Data Services. If you do not have one, please contact 
+                                your ICE Data Services representative.
+
+   -m    <mode>                 Identifies the type of request to make.  The following 
+                                modes may be specified:
+
+                                   - addTrigger
+                                     Adds each defined trigger to the Snap-on-Trigger service.
+                                     The service provides snapshot data each time a trigger's
+                                     specifications are met.
+                                     
+                                   - shortList
+                                     Lists the names of all active triggers.
+                                     
+                                   - detailedList
+                                     Lists all active triggers along with their details.
+                                     
+
+   -s    <symbols>              The symbol, or symbols, to use for making the Level 1  
+                                request. A single instrument may be entered, or a comma 
+                                separated list of symbols. Symbols that include a space must
+                                be enclosed in quotes. For example:
+
+                                   -s "CL #F"
+
+                                Multiple symbols must be separated by commas with no spaces.
+                                If one of the symbols contains a space, the entire list must
+                                be enclosed in quotes.  Here are two examples:
+   
+                                   -s  IBM,GE,WFM
+ 
+                                   -s  "IBM,CL #F,WFM"
+
+   -in   <filename>             Specifies a file containing a list of symbols, with each symbol
+                                on a separate line.
+                                
+                                If the file is not in the same directory as the executing sample,
+                                provide the full path.
+                                
+                                Enclose the value in quotes if the file name or path contain spaces.
+                                For example:
+                                
+                                   -in "Input List.txt"
+                                   -in "C:\Users\YOU\Desktop\Input List.txt"
+                                
+                                When a symbol file is specified, it takes precedence over the
+                                -s <symbols> argument.
+   
+                                --------------------------------------------------------------------
+                                TRIGGER OPTIONS:                               
+                                --------------------------------------------------------------------
+                                This sample allows only one trigger to be specified as a command-line 
+                                argument.
+                                
+                                A trigger consists of one set of field IDs, one trigger name, and one
+                                set of symbols (either -s <symbols> or -in <filename>).
+                                
+                                To define multiple triggers, use the SnapOnTriggerSample.properties
+                                file.
+                                --------------------------------------------------------------------
+
+   -name  <name>                A unique identifier for the trigger. For example:
+   
+                                   name="Open and 52Wk"
+   
+   -ids   <field IDs>           A comma-separated list of field IDs. For example:
+   
+                                   ids=24,50,51
+                                
+                                These field IDs correspond to the following Quote.FieldItem definitions:
+                                
+                                   Quote.FieldItem.LRT_TYPE_OPEN
+                                   Quote.FieldItem.LRT_TYPE_52WEEKHIGH
+                                   Quote.FieldItem.LRT_TYPE_52WEEKLOW
+                                   
+                                --------------------------------------------------------------------
+
+   -limit <timeLimit>           The duration this sample will run before exiting.
+                                Time duration applies to subscribe requests only.
+                                Syntax for setting the time duration is: 
+                                          
+                                    HH:MM:SS
+                                             
+                                Setting the limit to 0 or 00:00:00 indicates to run
+                                continuously without end; sample application must be
+                                forcibly stopped.
+                                
+   -disp <display>              Controls the formatting and output to the console window.
+                                Valid values include:
+                                                     
+                                   - ON    Output displays within the console window and
+                                           is formatted for readability.
+                                           
+                                   - OFF   Suppresses most output from display within the
+                                           console window.  Output is formatted as comma-
+                                           separated values and intended for redirection to
+                                           a file.
+                                           
+                                Usage Example:
+                                
+                                java -cp .;JStandardSamples.jar;lib/* TriggeredQuoteManager.SnapOnTriggerSample.Main \
+                                -h host -u user -p pwd -m addTrigger -limit 00:05:10 -disp off > detailedoutput.csv
+                              
+Note:  If you do not enter a value for "optional" arguments, the values from the SnapOnTrigger.properties
+       file will be used.  <username> and <password> must be entered at the command line.

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="off">
+  <Properties>
+    <Property name="app">jstandard-sdk-samples</Property>
+    <Property name="logDir">.</Property>
+  </Properties>
+  <Appenders>
+    <Console name="console" target="SYSTEM_OUT">
+      <PatternLayout pattern="[%d{MM/dd/yy HH:mm:ss.SSS}] %-5p %c{1} - %m%n"/>
+    </Console>
+    <Console name="cplusplusconsole" target="SYSTEM_OUT">
+      <PatternLayout pattern="[%d{MM/dd/yy HH:mm:ss.SSS}] %-5p %c{1} - %m"/>
+    </Console>
+    <RollingFile name="dailylog" append="true" fileName="${logDir}/${app}.log" filePattern="${logDir}/${app}_%d{yyyy-MM-dd}.log" >
+      <PatternLayout pattern="[%d{MM/dd/yy HH:mm:ss.SSS}] %-5p %c{1} - %m"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+      </Policies>
+    </RollingFile>
+    <Async name="ASYNC">
+      <AppenderRef ref="dailylog"/>
+      <AppenderRef ref="console"/>
+      <AppenderRef ref="cplusplusconsole"/>
+    </Async>
+  </Appenders>
+  <Loggers>
+    <Root level="off">
+      <AppenderRef ref="ASYNC"/>
+    </Root>
+    <Logger name="com.esignal.jstandard" level="off">
+     <AppenderRef ref="console"/>
+    </Logger> 
+    <Logger name="org.apache.commons" level="off">
+     <AppenderRef ref="console"/>
+    </Logger> 
+    <Logger name="CPLUSPLUSLOG" level="off">
+      <AppenderRef ref="cplusplusconsole"/>
+    </Logger>     
+  </Loggers>
+</Configuration>

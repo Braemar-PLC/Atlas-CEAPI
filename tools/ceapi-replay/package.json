@@ -1,0 +1,12 @@
+{
+  "name": "ceapi-replay",
+  "private": true,
+  "type": "module",
+  "description": "Fake CEAPI: replays webapp/test-data/ceapidata.json over WebSocket so Atlas.Web.Api can run without ICE",
+  "scripts": {
+    "start": "node replay.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

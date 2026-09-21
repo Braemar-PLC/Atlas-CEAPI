@@ -1,0 +1,27 @@
+# Dockerfile for CEAPI (Windows container)
+# Build context: the CEAPI directory. Copy the ICE native DLLs from:
+# C:\Users\Satyend.Appiah\OneDrive - Braemar plc\Documents\DELTA Drive\Scripts\Azure Deployments\Atlas\Atlas-main\Atlas-main\Java_SDK_01_031_0001
+# into CEAPI\bin\ before building.
+
+FROM mcr.microsoft.com/temurin:17-jdk-windowsservercore-ltsc2022
+
+WORKDIR /app
+
+# Copy project sources and libs into the image
+COPY . /app
+
+# Ensure native libraries are present at runtime under C:\app\bin
+# Copy PortLib_64VC17.dll and dbcapi_64VC17.dll from the local SDK folder into CEAPI\bin\ first.
+COPY bin/ C:/app/bin/
+
+# Build the project using the bundled Gradle wrapper. This produces classes/jars under build/.
+RUN powershell -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; .\gradlew.bat --no-daemon build -x test"
+
+# Expose the websocket port (default configured in CEAPI/.env or Settings.fromEnv())
+EXPOSE 9002
+
+# Set JNA library path so the JStandard SDK can load the native DLLs
+ENV JAVA_TOOL_OPTIONS="-Djna.library.path=C:\\app\\bin"
+
+# Run the main class directly on the assembled classpath
+ENTRYPOINT ["powershell", "-Command", "java -Djna.library.path=C:\\app\\bin -cp 'build\\libs\\*;lib\\*' com.braemar.ceapi.Main"]

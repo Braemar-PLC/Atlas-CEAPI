@@ -1,0 +1,708 @@
+USAGE:
+
+   Windows
+   -------
+      java -cp .;JStandardSamples.jar;lib/* TickHistoryManager.TickHistorySample.Main
+                [-h <host> -conn <connectionType>] -u <username> -p <password>]
+                [-m <mode> -ver <version>]                                                              
+                [-b <beginDate -e <endDate> -i <interval> -s <symbol> -in <filename>]
+                [-o <options>]                                                                      
+                [-disp <displaySwitch>]                                                             
+   Linux
+   ------
+      java -cp .:JStandardSamples.jar:lib/* TickHistoryManager.TickHistorySample.Main
+                [-h <host> -conn <connectionType>] -u <username> -p <password>]
+                [-m <mode> -ver <version>]                                                              
+                [-b <beginDate -e <endDate> -i <interval> -s <symbol> -in <filename>]
+                [-o <options>]                                                                      
+                [-disp <displaySwitch>]                                                             
+                                                                                                        
+where                                                                                                   
+                                                                                                        
+   Arg   Value                  Description                                                             
+   ---   -----                  -----------                                                             
+   -h    <host>                 Specifies the address to use to connect to the ICE Data Services        
+                                Consolidated Feed Network.                                              
+                                                                                                        
+                                For example: cm*.dataservices.theice.com                                
+                                                                                                        
+   -conn <connectionType>       Specifies the type of connection to use with the ICE Data Services
+                                network.  Valid values include:
+                                
+                                   0 - SOCKTYPE_LEGACY    Uses a non TLS connection.
+                                   1 - SOCKTYPE_TLS       Uses a secure/encrypted socket connection.
+                                   2 - SOCKTYPE_TLS_PLUS  Not yet implemented; reserved for future support.
+
+   -u    <username>  (required) The username for the account entitled to receive data from              
+                                ICE Data Services. If you do not have one, please contact               
+                                your ICE Data Services representative.                                  
+                                                                                                        
+   -p    <password>  (required) The password for the account entitled to receive data from              
+                                ICE Data Services. If you do not have one, please contact               
+                                your ICE Data Services representative.                                  
+                                                                                                        
+   -m    <mode>                 Identifies the type of request to make. The following modes may be      
+                                specified:                                                              
+                                                                                                        
+                                   - history                                                            
+                                     Instructs the sample to make a request for intraday historical     
+                                     data.  Other arguments provided indicate the type of intraday      
+                                     history to request, such as tick history or bar history.           
+                                                                                                        
+                                   - dictionary                                                         
+                                     Instructs the sammple to make a request that returns the fields    
+                                     supported by the Flexible Data feature.  The Intraday History      
+                                     service will return the most current dictionary fields supported   
+                                     by the Flexible Data feature.                                      
+                                                                                                        
+                                     note:  The dictionary mode may be used with the -ver argument      
+                                            to specify the client's version of the dictionary.          
+                                            All other sample arguments will be ignored.                 
+                                            See -ver <dictID> for more details.                         
+                                                                                                         
+                        note: The "flexible data" features are available for the "desktop 
+                              offerings" only.
+                                                                                                                                                                                                      
+  -ver   <version>              Indicates the version of the dictionary known to the client.            
+                                The Intraday History service will return all the fields added or changed 
+                                between the version reported by the client and the version known to the 
+                                service.                                                                
+                                                                                                        
+                                If there are no new fields or changes, the service will return an empty 
+                                set.                                                                    
+                                                                                                        
+                                note:  Set the client version to 0 to retrieve a full dictionary update.
+                                       For example:                                                     
+                                                                                                        
+                                       -ver 0                                                           
+                                                                                                        
+   -b    <beginDate>            Is the start date for the request. The form of the date                 
+                                is yyyy/mm/dd hh:mm:ss.  For example:                                   
+                                                                                                        
+                                   "2016/1/1 00:00:00"                                                
+                                                                                                        
+   -e    <endDate>              Is the end date for the request.  The form of the date                  
+                                is yyyy/mm/dd hh:mm:ss.  for example:                                   
+                                                                                                        
+                                   "2016/3/31 23:59:59"                                               
+                                                                                                        
+   -i    <interval>             Specifies the interval for the request. Takes a number                  
+                                where:                                                                  
+                                                                                                        
+                                   0 = Tick                                                             
+                                                                                                        
+                                   and                                                                  
+                                                                                                        
+                                   Greater than 0 = minute intervals                                    
+                                   (e.g. 1 = 1-minute bars, 5 = 5-minute bars, etc.)                    
+                                                                                                        
+   -s    <symbols>              The symbol, or symbols, to use for making the historical                
+                                request. A single instrument may be entered, or a comma                 
+                                separated list of symbols. Symbols that include a space must            
+                                be enclosed in quotes. For example:                                     
+                                                                                                        
+                                    -s "CL #F"                                                        
+                                                                                                        
+                                Multiple symbols must be separated by commas with no spaces.            
+                                If one of the symbols contains a space, the entire list must            
+                                be enclosed in quotes.  Here are two examples:                          
+                                                                                                        
+                                    -s  IBM,GE,WFM                                                      
+                                                                                                        
+                                    -s  "IBM,CL #F,WFM"                                               
+                                                                                                        
+   -in   <filename>             Specifies a file containing a list of symbols, with each symbol
+                                on a separate line.
+                                
+                                If the file is not in the same directory as the executing sample,
+                                provide the full path.
+                                
+                                Enclose the value in quotes if the file name or path contain spaces.
+                                For example:
+                                
+                                   -in "Input List.txt"
+                                   -in "C:\Users\YOU\Desktop\Input List.txt"
+                                
+                                When a symbol file is specified, it takes precedence over the
+                                -s <symbols> argument.
+   
+   -o    <options>              Specifies the options for this request.                                 
+                                The Intraday History service provides three groups of options:          
+                                                                                                        
+                                   - Tick Request Options                                               
+                                     Options available to requests for tick data (ie interval set to 0) 
+                                                                                                        
+                                   - Minute Bar Request Options                                         
+                                     Options available to requests for minute bar data                  
+                                                                                                        
+                                   - Flexible Data Request Options                                      
+                                     Options for requesting bar data based upon specific fields of data.
+                                     These options can be used with Tick Request Options and Minute Bar 
+                                     Request Options.  For example, bars based on \"ask_price\" can be  
+                                     returned:                                                          
+                                                                                                        
+                                     ASK PRICE: [high:99.8475  low:99.756  open:99.7906  close:99.7776] 
+                                                                                                        
+                                     The above "bar" provides "standard" fields (OHLC), but the     
+                                     values for these fields are based upon the ask price for the       
+                                     instrument requested.                                              
+                                                                                                        
+                                     note:  1. Only fields listed as part of the Flexible Data          
+                                               Dictionary are supported.                                
+                                                                                                        
+                                            2. Flexible Data Request options support TRACE Bonds (-TB),       
+                                               NYSE Listed Corporate Bonds (-NB), Municipal Securities 
+                                               Rulemaking Board (MSRB) Bonds (-MB), U.S. Energy Information
+                                    Administration Data (-DOE), Commodity Futures Trading 
+                                    Commission Data (-CFTC), and instruments available to the
+                                    Continuously Evaluated Pricing (CEP) feed only. 
+                                                                                                        
+                                            3. "static" field types, such as "close" and            
+                                               "accrued_interest" are not supported by requests for   
+                                               tick data.                                               
+                                                                                                        
+                                 4. The "flexible data" features are available for the "desktop 
+                                       offerings" only.                     
+                                    
+                                --------------------------------------------------------------------    
+                                TICK REQUEST OPTIONS (interval set to 0):                               
+                                --------------------------------------------------------------------    
+                                                                                                        
+                                 APPLYCID     indicates how to apply correction/insertion/deletion      
+                                              data to the response.  Valid settings include:            
+                                                                                                        
+                                                 0   CID applied to the returned data where applicable. 
+                                                                                                        
+                                                 1   CID not applied to the returned data;              
+                                                     original trade returned.                           
+                                                                                                        
+                                                 2   For each CID, three records will be returned:      
+                                                     - the CID received                                 
+                                                     - the original trade                               
+                                                     - the updated record                               
+                                                                                                        
+                                              For example:   APPLYCID=2                                 
+                                                                                                        
+                                 BBOONLY      instructs the Intraday History service to provide the     
+                                              National Best Bid and Offer (NBBO) quote just prior to    
+                                              each trade; no other quote data will be sent.             
+                                              (default is false).                                       
+                                                                                                        
+                                              For example:   BBOONLY=T                                  
+                                                                                                        
+                                 BROKERID     instructs the Intraday History service to return trade    
+                                              data only if the buyer ID or seller ID matches one of the 
+                                              IDs provided. Quotes do not include a broker ID, so this  
+                                              option implies the results will include trades only.      
+                                                                                                        
+                                              You can include up to 10 IDs separated by pipes ( | ).   
+                                                                                                        
+                                              For example:   BROKERID=12|68|134                         
+                                                                                                        
+                                      CID     instructs the Intraday History service to provide         
+                                              correction/insertion/deletion (CID) data as part of the   
+                                              response.  (default is false)                             
+                                                                                                        
+                                              For example:   CID=T                                      
+                                                                                                        
+                                  DELETES     instructs the Intraday History service to include         
+                                              deleted tick records as part of the response.             
+                                              (default is false)                                        
+                                                                                                        
+                                              For example:   DELETES=T                                  
+                                                                                                        
+                                              note: This option requires the CID option to be on.       
+                                                                                                        
+                                 EXCHAHNGE    instructs the Intraday History service to return ticks    
+                                              that match a provided exchange code.                      
+                                                                                                        
+                                              For example:   EXCHANGE=NYSE                              
+                                                                                                        
+                                    FORMT     instructs the Intraday History service to include ticks   
+                                              that occur before and after the market. This includes     
+                                              "out-of-session" ticks.   (default is false)            
+                                                                                                        
+                                              For example:   FORMT=T                                    
+                                                                                                        
+                                  FORWARD     indicates the order to provide the data.                  
+                                              When this option is specified the order of                
+                                              the data will return oldest first moving                  
+                                              forward to the most current time.  (default is false)     
+                                                                                                        
+                                              For example:   FORWARD=T                                  
+                                                                                                        
+                                    NTICS     instructs the Intraday History service to return a        
+                                              given number of ticks between the begin time and end      
+                                              time.                                                     
+                                                                                                        
+                                              For example:   NTICS=5                                    
+                                                                                                        
+                                 NTICSEAL     instructs the Intraday History service to return all      
+                                              the ticks that occur within the second boundary of the    
+                                              request.  (default is false)                              
+                                                                                                        
+                                              note: This option requires the NTICS option to be set.    
+                                                                                                        
+                                              For example:  NTICS=5,NTICSEAL=T                            
+                                                                                                        
+                                              In this example, if there are more than 5 ticks within    
+                                              the second those ticks will be returned also.  
+                                                                                                        
+                                    PRICE     instructs the Intraday History service to filter out      
+                                              prices outside a given range. For example, filter out     
+                                              prices greater than 100.0.                                
+                                                                                                        
+                                              This option requires two values:                          
+                                                                                                        
+                                                 - A Range Operator                                     
+                                                 - A Price                                              
+                                                                                                        
+                                              Valid \"Range Operators\" Include:                        
+                                                                                                        
+                                                  =         returns prices equal to the given value     
+                                                  >         returns prices greater than the given value 
+                                                  <         returns prices less than the given value    
+                                                  >=        returns prices greater than or equal to     
+                                                            the given value                             
+                                                  <=        returns prices less than or equal to        
+                                                            the given value                             
+                                                                                                        
+                                              For example:                                              
+                                                                                                        
+                                                 PRICE=>=100.0                                          
+                                                 PRICE==20.0                                            
+                                                                                                        
+                                              note: The first equal sign is required and not considered 
+                                                    part of the range operator.                         
+                                                                                                        
+                                QUOTEONLY     instructs the Intraday History service to provide the     
+                                              quote (bid/ask) data only; trade data will not be         
+                                              returned.  (default is false)                             
+                                                                                                        
+                                              For example:   QUOTEONLY=T                                
+                                                                                                        
+                                    SEQNO     instructs the Intraday History service to provide data    
+                                              starting from a given Trade or Quote sequence number.     
+                                                                                                        
+                                              For example:   SEQNO=7261821T                             
+                                                                                                        
+                                              note: Enter the sequence number followed by a T or Q      
+                                                    to indicate Trade or Quote.                         
+                                                                                                        
+                                     SIZE     instructs the Intraday History service to filter out      
+                                              trades outside a given volume range. For example, filter  
+                                              out trades with a volume greater than 100.                
+                                                                                                        
+                                              This option requires two values:                          
+                                                                                                        
+                                                 - A Range Operator                                     
+                                                 - A Volume                                             
+                                                                                                        
+                                               Valid \"Range Operators\" Include:                       
+                                                                                                        
+                                                   =         returns volumes equal to the given value   
+                                                   >         returns volumes greater than given value   
+                                                   <         returns volumes less than the given value  
+                                                   >=        returns volumes greater than or equal to   
+                                                             the given value                            
+                                                   <=        returns volumes less than or equal to      
+                                                             the given value                            
+                                                                                                        
+                                              For example:                                              
+                                                                                                        
+                                                 SIZE=>=100                                             
+                                                  SIZE==100                                             
+                                                                                                        
+                                              note: The first equal sign is required and not considered 
+                                                    part of the range operator.                         
+                                                                                                        
+                               TRADESONLY     instructs the Intraday History service to provide the     
+                                              trade data only; quote (bid/ask) data will not be         
+                                              returned.  (default is false)                             
+                                                                                                        
+                                              For example:   TRADESONLY=T                               
+                                                                                                        
+                                    VALUE     instructs the Intraday History service to filter out      
+                                              trades outside a given value range.                       
+                                                                                                        
+                                              note: A value is defined as (price) X (trade size).       
+                                                                                                        
+                                              For example, filter out values greater than 100.0.        
+                                                                                                        
+                                              This option requires two values:                          
+                                                                                                        
+                                                 - A Range Operator                                     
+                                                 - A Value (as defined above)                           
+                                                                                                        
+                                               Valid \"Range Operators\" Include:                       
+                                                                                                        
+                                                   =         returns trades equal to the given value    
+                                                   >         returns trades greater than the given value
+                                                   <         returns trades less than the given value   
+                                                   >=        returns trades greater than or equal to    
+                                                             the given value                            
+                                                   <=        returns trades less than or equal to       
+                                                             the given value                            
+                                                                                                        
+                                              For example:                                              
+                                                                                                        
+                                                 VALUE=>=100.0                                          
+                                                 VALUE==20.0                                            
+                                                                                                        
+                                              note: The first equal sign is required and not considered 
+                                                    part of the range operator.                         
+                                                                                                        
+                                --------------------------------------------------------------------    
+                                SAMPLE-SPECIFIC TICK REQUEST OPTIONS (interval set to 0):                               
+                                --------------------------------------------------------------------    
+                                The following options are implemented by this sample only.  These options
+                                are *not* a part of the ICE Data Services API or known to the Intraday
+                                History service.
+                                
+                                QUALFILTER    instructs the sample to display only updates that contain one 
+                                              or more of the specified qualifier IDs. The Intraday History 
+                                              service will return all available tick data for the instrument 
+                                              within the specified date and time range, but the sample will 
+                                              show only the records that include one or more of the specified 
+                                              qualifiers.
+                                                                                                        
+                                              This sample limits the number of qualifiers you can specify
+                                              to 10 IDs separated by pipes ( | ).   
+                                                                                                        
+                                              For example:   QUALFILTER=47|69|88|89
+                                              
+                                              note: The qualifiers.tab file provides human-readable descriptions
+                                                    of each qualifier ID.  The qualifiers.tab file may be
+                                                    downloaded from http://fs2.esignal.com/qualifiers.tab       
+                                                    
+                                              This option works with the following standard tick options:
+                                              
+                                                 CID=T
+                                                 QUOTEONLY=T              
+                                                 TRADESONLY=T
+                                                 
+                                              note: CID=T is required to ensure the updates include qualifier
+                                                    information.
+
+                                --------------------------------------------------------------------    
+                                MINUTE BAR REQUEST OPTIONS (interval set to a value greater than 0):    
+                                --------------------------------------------------------------------    
+                                                                                                        
+                                CLOSETIME<i>  instructs the Intraday History service to treat every     
+                                              day as a trading day, including holidays and weekends.    
+                                              This option takes close times (hour and minute).          
+                                              You can set up to four close times for a session.         
+                                              For example:                                              
+                                                                                                        
+                                                 CLOSETIME1=1400                                        
+                                                 CLOSETIME2=1930                                        
+                                                                                                        
+                                              note: Hour values range from 0-23                         
+                                                    Minute values range from 0-59                       
+                                                    Session times take the following format: HHMM       
+                                                    You can include CLOSETIME1 through CLOSETIME4.      
+                                                                                                        
+                                              Use CLOSETIME<i> option with the OPENTIME<i> option.      
+                                              For each CLOSETIME<i> option set there should be a        
+                                              corresponding OPENTIME<i> option set.                     
+                                              See the OPENTIME<i> option below.                         
+                                                                                                        
+                                 DIVIDEND     instructs the Intraday History server to adjust the data  
+                                              it returns based upon the dividend associated with the    
+                                              instrument. Valid settings include:                       
+                                                                                                        
+                                                 0   No adjustments applied.                            
+                                                                                                        
+                                                 1   The dividend amount on the execution date is added 
+                                                     to the pricing.                                    
+                                                                                                        
+                                                 2   The original price is multiplied by the dividend    
+                                                     amount divided by the close price on the execution 
+                                                     date.                                              
+                                                                                                        
+                                              For example: DIVIDEND=2                                   
+                                                                                                        
+                                 EXCAHNGE     instructs the Intraday History service to return data     
+                                              that matches a provided exchange code.                    
+                                                                                                        
+                                              For example:   EXCHANGE=NYSE                              
+                                                                                                        
+                                    FORMT     instructs the Intraday History service to include data    
+                                              that occurs before and after the market. This includes    
+                                              "out-of-session" data.  (default is false)              
+                                                                                                        
+                                              For example:   FORMT=T                                    
+                                                                                                        
+                                  FORWARD     indicates the order to provide the data.                  
+                                              When this option is specified the order of                
+                                              the data will return oldest first moving                  
+                                              forward to the most current time.  (default is false)     
+                                                                                                        
+                                              For example:   FORWARD=T                                  
+                                                                                                        
+                                    NBARS     instructs the Intraday History service to return a        
+                                              given number of bars between the begin time and end       
+                                              time.                                                     
+                                                                                                        
+                                              For example:   NBARS=5                                    
+                                                                                                        
+                                  NTICBAR     instructs the Intraday History service to use a given     
+                                              number of ticks to create each bar.            :          
+                                                                                                        
+                                              For example:   NTICBAR=20                                 
+                                                                                                        
+                                              The above example instructs the Intraday History service  
+                                              to create bars for every 20 ticks.                        
+                                                                                                        
+                           NTICBAR_PRCCHG     instructs the Intraday History service to create bars     
+                                              based upon the number of times the price changes.         
+                                              For example, if the option is set to 6, the bars will     
+                                              include trades that have up to 6 price changes; the       
+                                              seventh price change will start a new bar.                
+                                                                                                        
+                                              For example:   NTICBAR_PRICING=6                          
+                                                                                                        
+                            NTICBAR_RANGE     instructs the Intraday History service to create a new    
+                                              bar when the last price exceeds an acceptable range       
+                                              between the high and the low. Each bar will continue to   
+                                              build as long as the high/low range is less than or equal 
+                                              to the defined range. Once a trade occurs outside the     
+                                              range a new bar begins to form.                           
+                                                                                                        
+                                              For example:  NTICBAR_RANGE=125.00                        
+                                                                                                        
+                              NTICBAR_SEC     instructs the Intraday History service to create bars     
+                                              that include ticks for a given number of seconds.         
+                                                                                                        
+                                              For example:  NTICBAR_SEC=15                              
+                                                                                                        
+                              NTICBAR_VOL     instructs the Intraday History service to create bars     
+                                              based upon volume instead of time. If the volume (ie size)
+                                              of a tick is larger than the predefined value, the tick   
+                                              will be broken down into multiple bars. These bars will   
+                                              have the same time stamp, which is the time of the first  
+                                              tick, and the remaining volume will continue to each      
+                                              bar that follows. The result of this option is that all   
+                                              bars will have the same volume, and that volume is set by 
+                                              the option.                                               
+                                                                                                        
+                                              For example:  NTICBAR_VOL=450                             
+                                                                                                        
+                             NTICBAR_VOL2     instructs the Intraday History service to create bars     
+                                              based upon volume instead of time. If the volume (ie size)
+                                              is greater than the given value, the Intraday History     
+                                              service will provide a bar. A new bar will be created each
+                                              time the volume is exceeded.                              
+                                                                                                        
+                                              For example:  NTICBAR_VOL2=450                            
+                                                                                                        
+                                  NULLBAR     instructs the Intraday History service to provide empty   
+                                              bars for periods when there is no market data.            
+                                              (default is false)                                        
+                                                                                                        
+                                              For example:  NULLBAR=T                                   
+                                                                                                        
+                                OPENTIME<i>   instructs the Intraday History service to treat every     
+                                              day as a trading day, including holidays and weekends.    
+                                              This option takes open times (hour and minute).           
+                                              You can set up to four open times for a session.          
+                                              For example:                                              
+                                                                                                        
+                                                 OPENTIME1=0900                                         
+                                                 OPENTIME2=1530                                         
+                                                                                                        
+                                              note: Hour values range from 0-23                         
+                                                    Minute values range from 0-59                       
+                                                    Session times take the following format: HHMM       
+                                                    You can include OPENTIME1 through OPENTIME4.        
+                                                                                                        
+                                              Use OPENTIME<i> option with the CLOSETIME<i> option.      
+                                              For each OPENTIME<i> option set there should be a         
+                                              corresponding CLOSETIME<i> option set.                    
+                                              See the CLOSETIME<i> option above.                        
+                                                                                                        
+                               OUTSESSION     instructs the Intraday History service to provide data    
+                                              outside of the market session. (default is true)          
+                                                                                                        
+                                              For example:  OUTSESSION=F                                
+                                                                                                        
+                               SETTLEMENT     instructs the Intraday History service to include         
+                                              the settlement of bars. (default is true)                 
+                                                                                                        
+                                              For example:  SETTLEMENT=T                                
+                                                                                                        
+                                    SPLIT     instructs the Intraday History service to provide split   
+                                              adjusted data. (default is false)                         
+                                                                                                        
+                                              For example:  SPLIT=T                                     
+                                                                                                        
+                                 Multiple option-key pairs may be entered when separated by spaces and  
+                                 encapsulated by quotes.  For example:                                  
+                                                                                                        
+                                    "EXCHANGE=NYSE FORWARD=T"                                         
+                                                                                                        
+                                --------------------------------------------------------------------    
+                                FLEXIBLE DATA REQUEST OPTIONS:                                          
+                                --------------------------------------------------------------------    
+                                 important:  The "flexible data" features are available to "desktop 
+                                             offerings only.
+                                                                                                       
+                                  COLUMNS     identifies which Flexible Data fields to return for       
+                                              this request.                                             
+                                                                                                        
+                                              Tick data requests may return multiple \"columns,\" but   
+                                              bar data requests support one \"column\" only.  If you    
+                                              specify more than one column for a bar request, the       
+                                              Intraday History service will return an error.            
+                                                                                                        
+                                              Use the TickHistorySample to request the Flexible Data    
+                                              dictionary for the latest listing of supported fields.    
+                                                                                                        
+                                              You can specify one or more fields separated by           
+                                              pipes ( | ).  For example:                               
+                                                                                                        
+                                                 COLUMNS=ask_price|bid_price                            
+                                                                                                        
+                                              note: If the COLUMNS option is not provided then the      
+                                                    DICTID option must be provided to submit a valid    
+                                                    Flexible Data request.                              
+                                                                                                        
+                                                    The COLUMNS option may be used in conjunction with  
+                                                    the DICTID request to extend the fields returned for
+                                                    request.  For example:                              
+                                                                                                        
+                                                    COLUMNS=convexity DICTID=1                          
+                                                                                                        
+                                                    The above option pair will return all the fields    
+                                                    listed for field dictionary ID 1 plus the convexity 
+                                                    field listed in field dictionary ID 3.              
+                                                    Multiple columns may be specified.                  
+                                                                                                        
+                                   DICTID     instructs the Intraday History service to return the      
+                                              Flexible Data fields ("columns") specified by one of the
+                                              following field dictionary IDs:                           
+                                                                                                        
+                                              ----------------------------------------------------------
+                                              ID     Type of Fields                                     
+                                              ----------------------------------------------------------
+                                              1      Continuously Evaluated Pricing (CEP) set A         
+                                              2      Bonds                                              
+                                              3      Continuously Evaluated Pricing (CEP) set B         
+                                                                                                        
+                                              Here is a list of the fields for each ID at the time this 
+                                              sample was written:                                       
+                                                                                                        
+                                              [1] - CEP set A                                                       
+                                                 ----------------------------------------------------------------------
+                                                 bid columns         ask columns         mid columns                
+                                                 ----------------------------------------------------------------------
+                                                 bid_price           ask_price           mid_price                  
+                                                 bid_yield           ask_yield           mid_yield                  
+                                                 bid_time            ask_time                                       
+                                                 bid_spread          ask_spread          mid_spread                 
+                                                 bid_discount                            mid_discount               
+                                                 bid_pricing_spread  ask_pricing_spread  mid_pricing_spread         
+                                                 ----------------------------------------------------------------------
+                                                                                                                    
+                                              [2] - Bonds                                                           
+                                                 ----------------------------------------------------------------------
+                                                 general columns                                                    
+                                                 ----------------------------------------------------------------------
+                                                 yield, side, execution_time, price, bid, bid_size, ask, ask_size, size                 
+                                                 ----------------------------------------------------------------------
+                                                                                                                    
+                                              [3] - CEP set B                                                       
+                                                 ----------------------------------------------------------------------
+                                                 general columns                                                    
+                                                 ----------------------------------------------------------------------
+                                                 convexity                                                          
+                                                 effective_duration                                                 
+                                                 bullet_price                                                       
+                                                 bullet_yield                                                       
+                                                 macaulay_duration                                                  
+                                                 duration                                                           
+                                                 ----------------------------------------------------------------------
+                                                                                                                    
+                                                 ----------------------------------------------------------------------
+                                                 bid columns            ask columns            mid columns          
+                                                 ----------------------------------------------------------------------
+                                                 bid_oas_spread         ask_oas_spread                              
+                                                 bid_g_spread           ask_g_spread           mid_g_spread         
+                                                 bid_i_spread           ask_i_spread           mid_i_spread         
+                                                 bid_z_spread           ask_z_spread           mid_z_spread         
+                                                 bid_asset_swap_spread  ask_asset_swap_spread  mid_asset_swap_spread
+                                                 ----------------------------------------------------------------------
+                                                                                                        
+                                              note: If the COLUMNS option is not provided then the      
+                                                    DICTID option must be provided to submit a valid    
+                                                    Flexible Data request.                              
+                                                                                                        
+                                                    The COLUMNS option may be used in conjunction with  
+                                                    the DICTID request to extend the fields returned for
+                                                    request.  For example:                              
+                                                                                                        
+                                                    COLUMNS=convexity DICTID=1                          
+                                                                                                        
+                                                    The above option pair will return all the fields    
+                                                    listed for field dictionary ID 1 plus the convexity 
+                                                    field listed in field dictionary ID 3.              
+                                                    Multiple columns may be specified.                  
+                                                                                                        
+                                              important: The DICTID option is available to Flexible Data 
+                                                         requests for tick data only.                   
+                                                                                                        
+                                     FLEX     instructs the Intraday History service that this is a      
+                                              Flexible Data request and to provide a Flexible Data      
+                                              response. (default is false)                              
+                                                                                                        
+                                              For example:  FLEX=T                                      
+                                                                                                        
+                                              note: This option must be set to true (FLEX=T) when using 
+                                                    the COLUMNS option, otherwise the Intraday History  
+                                                    service will return an error.                       
+                                                                                                        
+                            TIMESERIESREF     instructs the Intraday History service to return the      
+                                              requested data based upon a supported time field.         
+                                              For example:                                              
+                                                                                                        
+                                                 TIMESERIESREF=exchange_time                            
+                                                                                                        
+                                              The above option instructs the Intraday History service to
+                                              provide the exchange time associated with each field      
+                                              returned by the request.                                  
+                                                                                                        
+                                              note: One exchange may provide a different time precision 
+                                                    than another.  For example, an exchange may provide 
+                                                    millisecond time stamps, while another may provide   
+                                                    microsecond time stamps.                            
+                                                                                                        
+                                              Setting this option to use exchange_time is recommended.  
+                                                                                                        
+                                              The TIMESERIESREF option is required if the COLUMNS option
+                                              is set.  If the TIMESERIESREF option is not set, this     
+                                              sample will use the default value:                        
+                                                                                                        
+                                                 TIMESERIESREF=exchange_time                            
+                                                                                                        
+                                              Refer to the TickHistoryManager DictionaryRequestSample   
+                                              for details regarding other available fields that have    
+                                              a timeseriesref data type.                                
+                                                                                                        
+                                                                                                        
+   -disp <displaySwitch>        indicates how to format the data received from the Intraday History     
+                                service.  Valid settings include:                                       
+                                                                                                        
+                                   ON      the data will be formatted for viewing the output            
+                                           on the screen. (default)                                     
+                                                                                                        
+                                   OFF     the data will be formatted for viewing the output            
+                                           as a comma separated value (CSV) file.                       
+                                                                                                        
+                                note:  When set to OFF, the command line must end with standard         
+                                       redirection syntax and a file name.  For example:                
+                                                                                                        
+                                          -disp OFF >> output.csv                                       
+                                                                                                        
+Note:  If you do not enter a value for <host>, <mode>, <ver>, <beginDate>, <endDate>, <interval>,    
+       <symbols>, <options>, or <displaySwitch> the default values will be used.                        
+       <username> and <password> must be entered at the command line.                                   

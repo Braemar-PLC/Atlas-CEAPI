@@ -1,0 +1,11 @@
+
+.gradle/
+build/
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+*.class
+hs_err_pid*

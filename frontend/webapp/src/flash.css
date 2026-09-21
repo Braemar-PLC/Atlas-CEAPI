@@ -1,0 +1,2 @@
+.flash-cell { animation: flash 0.35s ease-out; }
+@keyframes flash { from { background: #ffeea8; } to { background: inherit; } }

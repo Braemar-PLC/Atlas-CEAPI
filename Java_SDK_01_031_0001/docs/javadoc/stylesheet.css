@@ -1,0 +1,83 @@
+/* Javadoc style sheet */
+
+/* Define colors, fonts and other style attributes here to override the defaults */
+
+/* Page defaults */
+body {
+	font-family: Arial, Sans-Serif;
+	font-size: 0.9em;
+	background-color: #FFFFFF;
+	margin:0px;
+}
+td {
+	font-family: Arial, Sans-Serif;
+}
+a {
+	color: #00017D;
+}
+hr {
+	height: 1px;
+	background-color: #666666;
+	border: 0px;
+}
+h1 {
+	font-size:16pt;
+	font-weight:bold;
+}
+h2 {
+	font-size:14pt;
+	font-weight:bold;
+}
+
+/* Table colors */
+.TableHeadingColor     {
+	background-color: #DDDDDD;
+}
+.TableSubHeadingColor  {
+	background-color: #EEEEEE;
+}
+.TableRowColor         {
+	background-color: #FFFFFF;
+}
+
+/* Font used in left-hand frame lists */
+.FrameTitleFont   {
+	font-family: Arial, Sans-Serif;
+}
+.FrameHeadingFont {
+	font-family: Arial, Sans-Serif;
+}
+.FrameItemFont    {
+	font-family: Arial, Sans-Serif;
+}
+
+
+/* Navigation bar fonts and colors */
+.NavBarCell1    {
+	background-color:#DDDDDD;
+}
+.NavBarCell1Rev {
+	background-color:#639437;
+}
+.NavBarFont1    {
+	font-family: Arial, sans-serif;
+	color:#000000;
+}
+.NavBarFont1Rev {
+	font-family: Arial, sans-serif;
+	color:#FFFFFF;
+}
+
+.NavBarCell2    {
+	font-family: Arial, sans-serif;
+	background-color:#FFFFFF;
+}
+.NavBarCell3    {
+	font-family: Arial, sans-serif;
+	background-color:#FFFFFF;
+}
+
+#header-image {
+	background-color: #5280AB;
+}
+ 

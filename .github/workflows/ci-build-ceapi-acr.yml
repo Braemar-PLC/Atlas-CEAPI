@@ -1,0 +1,47 @@
+name: CI - Build CEAPI and push to ACR
+
+on:
+  push:
+    paths:
+      - 'CEAPI/**'
+    branches: [ 'main' ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      ACR_NAME: ${{ secrets.ACR_NAME }}
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Ensure ACR name
+        run: |
+          az acr show -n ${{ env.ACR_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} || (echo "ACR not found" && exit 1)
+
+      - name: Build image in ACR (server-side build)
+        run: |
+          # Use Azure Container Registry Tasks to build the Windows image in Azure. Adjust --platform if needed.
+          az acr build --registry ${{ env.ACR_NAME }} --image ceapi:${{ github.sha }} CEAPI --platform windows
+
+      - name: Set output image
+        id: image
+        run: |
+          echo "image=${{ secrets.ACR_NAME }}.azurecr.io/ceapi:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Upload image info
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceapi-image
+          path: |
+            $(mktemp)

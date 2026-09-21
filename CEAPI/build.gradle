@@ -1,0 +1,101 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'jacoco'
+}
+
+group = 'com.example'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+application {
+    mainClass = 'com.braemar.ceapi.Main'
+
+    applicationDefaultJvmArgs = [
+        "-Djna.library.path=${projectDir}/bin"
+    ]
+
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // dotenv for environment variable management
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+    // WebSocket server — battle-tested RFC 6455 implementation
+    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    // CEAPI JARs
+    implementation fileTree(dir: "${projectDir}/lib", include: ['*.jar'])
+    implementation 'org.slf4j:slf4j-simple:2.0.13'
+
+    // Test
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    testImplementation 'uk.org.webcompere:system-stubs-jupiter:2.1.6'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+jacocoTestReport {
+    reports {
+        html.required = false
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: ['**/Main.class'])
+        }))
+    }
+}
+
+test {
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
+    testLogging {
+        events "failed", "skipped"
+        exceptionFormat "full"
+        showStandardStreams false
+    }
+    finalizedBy jacocoTestReport
+}
+
+tasks.register('integrationTest', Test) {
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    jvmArgs "-Djna.library.path=${projectDir}/bin"
+
+    // ALWAYS show stdout/stderr for integration tests
+    testLogging {
+        // NOTE: pass as varargs, not a list
+        events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
+        showStandardStreams = true
+        exceptionFormat 'full'
+    }
+
+    // Load .env into process env
+    def envFile = file("${projectDir}/.env")
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            line = line.trim()
+            if (line && !line.startsWith('#')) {
+                def idx = line.indexOf('=')
+                if (idx > 0) {
+                    def key = line.substring(0, idx).trim()
+                    def value = line.substring(idx + 1).trim()
+                    environment(key, value)
+                }
+            }
+        }
+    }
+}
+

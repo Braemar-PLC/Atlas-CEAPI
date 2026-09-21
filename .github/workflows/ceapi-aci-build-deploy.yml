@@ -1,0 +1,64 @@
+name: CEAPI - Build and Deploy to ACI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'CEAPI/**'
+      - '.github/workflows/ceapi-aci-build-deploy.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      ACR_NAME: ${{ secrets.ACR_NAME }}
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+      LOCATION: 'uksouth'
+      CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+      CEAPI_IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login using service principal
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Ensure ACR exists
+        run: |
+          az acr show -n "$ACR_NAME" -g "$RESOURCE_GROUP" > /dev/null || {
+            echo "ACR $ACR_NAME not found in resource group $RESOURCE_GROUP"
+            exit 1
+          }
+
+      - name: Build CEAPI image in ACR
+        run: |
+          az acr build \
+            --registry "$ACR_NAME" \
+            --image ceapi:$CEAPI_IMAGE_TAG \
+            --file CEAPI/Dockerfile.windows \
+            CEAPI
+
+      - name: Deploy ACI container group
+        run: |
+          IMAGE="$ACR_NAME.azurecr.io/ceapi:$CEAPI_IMAGE_TAG"
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/ceapi-aci.bicep \
+            --parameters \
+              location="$LOCATION" \
+              acrName="$ACR_NAME" \
+              prefix='atlas' \
+              containerImage="$IMAGE" \
+              ceapiContainerGroupName="$CEAPI_CONTAINER_GROUP" \
+              iceHost='${{ secrets.ICE_HOST }}' \
+              iceUsername='${{ secrets.ICE_USERNAME }}' \
+              icePassword='${{ secrets.ICE_PASSWORD }}' \
+              symbols='${{ secrets.ICE_SYMBOLS }}'

@@ -1,0 +1,245 @@
+@startuml Atlas Architecture
+
+skinparam monochrome false
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam classBorderThickness 1
+skinparam arrowThickness 1.2
+skinparam packageBorderThickness 1
+
+skinparam package {
+  BackgroundColor #FAFAF9
+  BorderColor #888780
+  FontStyle bold
+  FontSize 12
+}
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #888780
+}
+
+' ──────────────────────────────────────────────────────────────────
+package "Atlas.Web.Core" #EEEDFE {
+
+  package "Domain.Enumeration" #E8E6FC {
+    enum DataStatus {
+      Active
+      Stale
+    }
+  }
+
+  package "Domain.Models" #E8E6FC {
+    class PricingSnapshot <<record>> {
+      + Symbol : string
+      + Fields : IReadOnlyDictionary<int,string>
+      + Status : DataStatus
+    }
+    class PricingUpdate <<record>> {
+      + Symbol : string
+      + Fields : IReadOnlyList<(int FieldId, string Value)>
+    }
+  }
+
+  package "Application.Models" #E8E6FC {
+    class PriceMessage <<record>> {
+      + Symbol : string
+      + Fields : IReadOnlyList<(int FieldId, string Value)>
+      + Status : DataStatus
+    }
+  }
+
+  package "Application.Ports" #E8E6FC {
+    interface IPricingStore {
+      + Publish(update : PricingUpdate) : void
+      + Invalidate(symbol : string) : void
+      + GetStream(symbol : string) : IObservable<PricingSnapshot>
+      + CurrentSnapshot(symbol : string) : PricingSnapshot
+    }
+    interface IPriceMessageHandler {
+      + Handle(message : PriceMessage) : void
+    }
+  }
+
+  package "Application.Services" #E8E6FC {
+    class PriceMessageHandler {
+      - _store : IPricingStore
+      + Handle(message : PriceMessage) : void
+    }
+  }
+
+  package "Domain.Logic" #E8E6FC {
+    class PricingStore {
+      - _subjects : ConcurrentDictionary<string, BehaviorSubject<PricingSnapshot>>
+      - _writeLock : object
+      + Publish(update : PricingUpdate) : void
+      + Invalidate(symbol : string) : void
+      + GetStream(symbol : string) : IObservable<PricingSnapshot>
+      + CurrentSnapshot(symbol : string) : PricingSnapshot
+      + Dispose() : void
+    }
+  }
+
+  PricingMessageHandler .up.|> IPriceMessageHandler
+  PricingStore .up.|> IPricingStore
+  PriceMessageHandler --> IPricingStore : routes to
+  PriceMessage --> DataStatus : carries
+  PricingSnapshot --> DataStatus : carries
+}
+
+' ──────────────────────────────────────────────────────────────────
+package "Atlas.Web.Ice" #E1F5EE {
+
+  package "Boundary" #D4F0E6 {
+    class IceEnvelope <<record>> {
+      + Symbol : string
+      + Fields : IReadOnlyList<(int FieldId, string Value)>
+    }
+  }
+
+  package "Domain.Enumeration" #D4F0E6 {
+    enum IceResponseMetaFieldIds {
+      EventHeader = 330
+      SecurityQualifiers = 568
+      TradingStatus = 455
+      TradeConditionFlags = 135
+      MarketPhasesCompact = 40
+      SessionSeqLike = 39
+      ExchangeTimeIso = 15
+      BeaconTimeIso = 16
+      SourceId = 201
+      LotSize = 47
+    }
+  }
+
+  package "Ports" #D4F0E6 {
+    interface IInboundParser {
+      + TryParse(payload : JsonElement, envelope : out IceEnvelope) : bool
+    }
+    interface IIceInterpreter {
+      + Interpret(envelope : IceEnvelope) : PriceMessage?
+    }
+  }
+
+  package "Adapters" #D4F0E6 {
+    class IceParser {
+      + TryParse(root : JsonElement, envelope : out IceEnvelope) : bool
+    }
+    class IceInterpreter {
+      - MetaFieldIds : HashSet<int>
+      + Interpret(envelope : IceEnvelope) : PriceMessage?
+    }
+    class IceReceiver <<IHostedService>> {
+      - _parser : IInboundParser
+      - _interpreter : IIceInterpreter
+      - _handler : IPriceMessageHandler
+      + StartAsync(ct : CancellationToken) : Task
+      + StopAsync(ct : CancellationToken) : Task
+    }
+  }
+
+  IceParser .up.|> IInboundParser
+  IceInterpreter .up.|> IIceInterpreter
+  IceReceiver --> IInboundParser : uses
+  IceReceiver --> IIceInterpreter : uses
+  IceReceiver --> IPriceMessageHandler : calls
+  IceInterpreter --> IceResponseMetaFieldIds : filters by
+  IceInterpreter ..> PriceMessage : produces
+}
+
+' ──────────────────────────────────────────────────────────────────
+package "Atlas.Web.Api" #FAECE7 {
+
+  package "Enumeration" #F5E0D8 {
+    enum StreamEventTypes {
+      Pricing
+    }
+    enum PricingEventActions {
+      Update
+      Remove
+    }
+  }
+
+  package "Models" #F5E0D8 {
+    class "StreamEvent<T>" <<record>> {
+      + Metadata : StreamEventMetadata
+      + Data : T
+    }
+    class StreamEventMetadata <<record>> {
+      + Key : string
+      + Type : StreamEventTypes
+      + Action : PricingEventActions
+      + ServerTimestamp : DateTime
+    }
+    class PricingStateDto <<record>> {
+      + Symbol : string
+      + Fields : IReadOnlyDictionary<int,string>
+    }
+  }
+
+  package "Factories" #F5E0D8 {
+    interface IStreamEventFactory {
+      + Create(snapshot : PricingSnapshot) : StreamEvent<PricingStateDto>
+    }
+    class StreamEventFactory {
+      + Create(snapshot : PricingSnapshot) : StreamEvent<PricingStateDto>
+    }
+  }
+
+  package "Services" #F5E0D8 {
+    interface ISseWriter {
+      + StreamAsync<T>(response : HttpResponse, items : IAsyncEnumerable<T>, ct : CancellationToken) : Task
+    }
+    interface ISseWriterFactory {
+      + Create() : ISseWriter
+    }
+    class SseWriter {
+      - _heartbeatInterval : TimeSpan
+      + StreamAsync<T>(...) : Task
+      - StartHeartBeat(...) : Task
+      - WriteMessage(...) : Task
+    }
+    class SseWriterFactory {
+      - _heartbeatInterval : TimeSpan
+      + Create() : ISseWriter
+    }
+    class SseOptions {
+      + Section : string
+      + HeartbeatInterval : TimeSpan
+    }
+  }
+
+  package "Controllers" #F5E0D8 {
+    class PricingController {
+      - _store : IPricingStore
+      - _sseFactory : ISseWriterFactory
+      - _eventFactory : IStreamEventFactory
+      + Stream(symbol : string, ct : CancellationToken) : Task
+    }
+  }
+
+  package "Mappers" #F5E0D8 {
+    class PricingMapper <<static>> {
+      + {static} ToDto(snapshot : PricingSnapshot) : PricingStateDto
+    }
+  }
+
+  StreamEventFactory .up.|> IStreamEventFactory
+  SseWriter .up.|> ISseWriter
+  SseWriterFactory .up.|> ISseWriterFactory
+  SseWriterFactory --> SseOptions : reads
+  SseWriterFactory ..> SseWriter : creates
+  StreamEventFactory --> PricingMapper : uses
+  StreamEventFactory ..> "StreamEvent<T>" : produces
+  "StreamEvent<T>" --> StreamEventMetadata
+  StreamEventMetadata --> StreamEventTypes
+  StreamEventMetadata --> PricingEventActions
+  PricingController --> IPricingStore : subscribes to
+  PricingController --> ISseWriterFactory : creates writer via
+  PricingController --> IStreamEventFactory : maps via
+}
+
+@enduml

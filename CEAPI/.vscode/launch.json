@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run CEAPI",
+            "request": "launch",
+            "mainClass": "com.braemar.ceapi.Main",
+            "projectName": "CEAPI",
+            "cwd": "${workspaceFolder}",
+            "vmArgs": "-Djna.library.path=${workspaceFolder}\\bin",
+            "console": "integratedTerminal"
+        }
+    ]
+}
