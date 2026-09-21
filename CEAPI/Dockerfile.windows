@@ -26,12 +26,19 @@ ENV JAVA_TOOL_OPTIONS=-Djna.library.path=C:\app\bin
 COPY . ./
 
 # Fail fast with actionable errors when required build/runtime artifacts are missing.
-RUN if (-not (Test-Path 'C:\\app\\gradle\\wrapper\\gradle-wrapper.jar')) { throw 'CEAPI/gradle/wrapper/gradle-wrapper.jar is missing from the build context. Commit it to Git before building the container.' }; `
-    if (-not (Test-Path 'C:\\app\\bin\\PortLib_64VC17.dll')) { throw 'CEAPI/bin/PortLib_64VC17.dll is missing. Stage the ICE SDK native DLLs into CEAPI/bin before building the container.' }; `
-    if (-not (Test-Path 'C:\\app\\bin\\dbcapi_64VC17.dll')) { throw 'CEAPI/bin/dbcapi_64VC17.dll is missing. Stage the ICE SDK native DLLs into CEAPI/bin before building the container.' }
+RUN $requiredFiles = @( `
+      'C:\app\gradle\wrapper\gradle-wrapper.jar', `
+      'C:\app\lib\ICEesig-jstandard-api-1.31.1.1.jar', `
+      'C:\app\lib\ICEesig-jstandard-dbcjna-1.31.1.1.jar', `
+      'C:\app\bin\PortLib_64VC17.dll', `
+      'C:\app\bin\dbcapi_64VC17.dll' `
+    ); `
+    foreach ($path in $requiredFiles) { `
+      if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required CEAPI build artifact missing: $path" } `
+    }
 
 # Build an installable distribution so runtime dependencies are laid out predictably.
-RUN .\gradlew.bat --no-daemon installDist -x test
+RUN & 'C:\app\gradlew.bat' --no-daemon installDist -x test
 
 EXPOSE 9002
 

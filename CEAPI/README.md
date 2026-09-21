@@ -54,7 +54,15 @@ resync
 ./gradlew run
 ```
 
-If you build the Windows container, make sure `CEAPI/gradle/wrapper/gradle-wrapper.jar` is committed to GitHub. The container build fails fast if the wrapper JAR or required native DLLs are missing from the build context.
+If you build the Windows container in GitHub Actions, the checkout must contain:
+
+- `CEAPI/gradle/wrapper/gradle-wrapper.jar`
+- `CEAPI/lib/ICEesig-jstandard-api-1.31.1.1.jar`
+- `CEAPI/lib/ICEesig-jstandard-dbcjna-1.31.1.1.jar`
+- `CEAPI/bin/PortLib_64VC17.dll`
+- `CEAPI/bin/dbcapi_64VC17.dll`
+
+The ICE SDK license must permit storing its JARs and DLLs in the GitHub repository. If it does not, provision them from an approved private artifact store during the workflow instead. The workflow and container build fail fast when an artifact is absent.
 
 ## Tests
 

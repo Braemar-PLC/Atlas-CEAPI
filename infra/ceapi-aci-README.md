@@ -44,15 +44,19 @@ docker build -f Dockerfile.windows -t ceapi:local .
 The GitHub workflow also requires these files to be present in the repo checkout before it builds:
 
 - `CEAPI/gradle/wrapper/gradle-wrapper.jar`
+- `CEAPI/lib/ICEesig-jstandard-api-1.31.1.1.jar`
+- `CEAPI/lib/ICEesig-jstandard-dbcjna-1.31.1.1.jar`
 - `CEAPI/bin/PortLib_64VC17.dll`
 - `CEAPI/bin/dbcapi_64VC17.dll`
+
+Only store ICE SDK binaries in GitHub if the ICE SDK license permits it. Otherwise, download them from an approved private artifact store before the validation step.
 
 ## Deployment flow
 
 The GitHub Action does the following:
 
 1. logs in to Azure
-2. validates that the Gradle wrapper and staged ICE native DLLs are present in the CEAPI build context
+2. validates that the Gradle wrapper, ICE Java SDK JARs, and native DLLs are present in the CEAPI build context
 3. builds the `CEAPI/Dockerfile.windows` image on a Windows GitHub runner and pushes it to ACR
 4. deploys `infra/ceapi-aci.bicep` to create or update the container group
 5. injects the ICE credentials and symbol list as runtime environment variables
