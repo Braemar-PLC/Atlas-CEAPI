@@ -30,6 +30,8 @@ RUN $requiredFiles = @( `
       'C:\app\gradle\wrapper\gradle-wrapper.jar', `
       'C:\app\lib\ICEesig-jstandard-api-1.31.1.1.jar', `
       'C:\app\lib\ICEesig-jstandard-dbcjna-1.31.1.1.jar', `
+      'C:\app\lib\jna-3.5.2.jar', `
+      'C:\app\lib\platform-3.5.2.jar', `
       'C:\app\bin\PortLib_64VC17.dll', `
       'C:\app\bin\dbcapi_64VC17.dll' `
     ); `

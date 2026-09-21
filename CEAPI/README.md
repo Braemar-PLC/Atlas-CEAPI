@@ -59,6 +59,8 @@ If you build the Windows container in GitHub Actions, the checkout must contain:
 - `CEAPI/gradle/wrapper/gradle-wrapper.jar`
 - `CEAPI/lib/ICEesig-jstandard-api-1.31.1.1.jar`
 - `CEAPI/lib/ICEesig-jstandard-dbcjna-1.31.1.1.jar`
+- `CEAPI/lib/jna-3.5.2.jar`
+- `CEAPI/lib/platform-3.5.2.jar`
 - `CEAPI/bin/PortLib_64VC17.dll`
 - `CEAPI/bin/dbcapi_64VC17.dll`
 

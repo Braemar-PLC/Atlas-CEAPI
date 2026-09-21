@@ -524,6 +524,7 @@ Thumbs.db
 # JAR/WAR/EAR artifacts (optional)
 *.jar
 !CEAPI/gradle/wrapper/gradle-wrapper.jar
+!CEAPI/lib/*.jar
 *.war
 *.ear
 
@@ -535,5 +536,3 @@ replay_pid*
 *.zip
 
 *._yml
-
-/CEAPI/lib
