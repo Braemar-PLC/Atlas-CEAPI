@@ -1,3 +1,4 @@
+# escape=`
 # Dockerfile for CEAPI (Windows container)
 # Build context: the CEAPI directory.
 # Stage the ICE native DLLs into CEAPI\bin\ before building.
