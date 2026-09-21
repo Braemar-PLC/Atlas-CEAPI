@@ -6,7 +6,7 @@
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
-WORKDIR C:\app
+WORKDIR C:/app
 
 # Install Java 17 on the Windows base image.
 RUN Invoke-WebRequest -Uri "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip" -OutFile "C:\jdk17.zip"; \
