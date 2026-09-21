@@ -66,6 +66,8 @@ If you build the Windows container in GitHub Actions, the checkout must contain:
 
 The ICE SDK license must permit storing its JARs and DLLs in the GitHub repository. If it does not, provision them from an approved private artifact store during the workflow instead. The workflow and container build fail fast when an artifact is absent.
 
+The GitHub workflow builds the Gradle `installDist` output before running Docker. The Windows image packages `CEAPI/build/install/ceapi` and does not execute Gradle inside the container build.
+
 ## Tests
 
 ```bash / powershell

@@ -22,30 +22,20 @@ ENV JAVA_HOME=C:\jdk-17
 ENV PATH=C:\jdk-17\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\
 ENV JAVA_TOOL_OPTIONS=-Djna.library.path=C:\app\bin
 
-# Copy project sources, Gradle wrapper, CEAPI JARs, and staged native DLLs into the image.
-COPY . ./
+# GitHub Actions builds the distribution before invoking Docker.
+COPY build/install/ceapi/ C:/app/
+COPY bin/ C:/app/bin/
 
-# Fail fast with actionable errors when required build/runtime artifacts are missing.
 RUN $requiredFiles = @( `
-      'C:\app\gradle\wrapper\gradle-wrapper.jar', `
-      'C:\app\lib\ICEesig-jstandard-api-1.31.1.1.jar', `
-      'C:\app\lib\ICEesig-jstandard-dbcjna-1.31.1.1.jar', `
-      'C:\app\lib\jna-3.5.2.jar', `
-      'C:\app\lib\platform-3.5.2.jar', `
+      'C:\app\bin\ceapi.bat', `
+      'C:\app\lib\ceapi-1.0-SNAPSHOT.jar', `
       'C:\app\bin\PortLib_64VC17.dll', `
       'C:\app\bin\dbcapi_64VC17.dll' `
     ); `
     foreach ($path in $requiredFiles) { `
-      if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required CEAPI build artifact missing: $path" } `
+      if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required CEAPI runtime artifact missing: $path" } `
     }
-
-# Invoke the wrapper JAR directly so the image build does not depend on batch-file path normalization.
-RUN & 'C:\jdk-17\bin\java.exe' `
-      '-Dorg.gradle.appname=gradlew' `
-      '-classpath' 'C:\app\gradle\wrapper\gradle-wrapper.jar' `
-      'org.gradle.wrapper.GradleWrapperMain' `
-      '--no-daemon' 'installDist' '-x' 'test'
 
 EXPOSE 9002
 
-ENTRYPOINT ["C:\\app\\build\\install\\ceapi\\bin\\ceapi.bat"]
+ENTRYPOINT ["C:\\app\\bin\\ceapi.bat"]

@@ -59,9 +59,10 @@ The GitHub Action does the following:
 
 1. logs in to Azure
 2. validates that the Gradle wrapper, ICE Java SDK JARs, and native DLLs are present in the CEAPI build context
-3. builds the `CEAPI/Dockerfile.windows` image on a Windows GitHub runner and pushes it to ACR
-4. deploys `infra/ceapi-aci.bicep` to create or update the container group
-5. injects the ICE credentials and symbol list as runtime environment variables
+3. builds the CEAPI `installDist` distribution on the Windows GitHub runner
+4. packages the prebuilt distribution with `CEAPI/Dockerfile.windows` and pushes it to ACR
+5. deploys `infra/ceapi-aci.bicep` to create or update the container group
+6. injects the ICE credentials and symbol list as runtime environment variables
 
 ## Important
 

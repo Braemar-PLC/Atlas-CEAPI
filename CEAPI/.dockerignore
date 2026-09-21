@@ -1,6 +1,5 @@
 # Keep the runtime DLL folder available to the container build.
 # The ICE SDK native libraries must be copied into CEAPI/bin/ before building.
-build/
 .gradle/
 .idea/
 *.iml
