@@ -15,7 +15,8 @@ RUN $jdkZip = 'C:\jdk17.zip'; \
     $jdkRoot = Get-ChildItem 'C:\' -Directory | Where-Object { $_.Name -like 'jdk-*' } | Sort-Object Name | Select-Object -First 1 | ForEach-Object { $_.FullName }; \
     [System.Environment]::SetEnvironmentVariable('JAVA_HOME', $jdkRoot, 'Machine'); \
     $envPath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine'); \
-    [System.Environment]::SetEnvironmentVariable('Path', "$envPath;$jdkRoot\bin", 'Machine'); \
+    $newPath = $envPath + ';' + $jdkRoot + '\bin'; \
+    [System.Environment]::SetEnvironmentVariable('Path', $newPath, 'Machine'); \
     Remove-Item $jdkZip -Force
 
 # Copy project sources and libs into the image.
