@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       id-token: write
       contents: read
@@ -32,33 +32,41 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Ensure ACR exists
+        shell: pwsh
         run: |
-          az acr show -n "$ACR_NAME" -g "$RESOURCE_GROUP" > /dev/null || {
-            echo "ACR $ACR_NAME not found in resource group $RESOURCE_GROUP"
-            exit 1
-          }
+          az acr show -n "$env:ACR_NAME" -g "$env:RESOURCE_GROUP" | Out-Null
 
-      - name: Build CEAPI image in ACR
+      - name: Login to ACR
+        shell: pwsh
         run: |
-          az acr build \
-            --registry "$ACR_NAME" \
-            --image ceapi:$CEAPI_IMAGE_TAG \
-            --file CEAPI/Dockerfile.windows \
-            CEAPI
+          az acr login --name "$env:ACR_NAME"
+
+      - name: Build CEAPI image for Windows container
+        shell: pwsh
+        run: |
+          $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
+          docker build -f CEAPI/Dockerfile.windows -t $image CEAPI
+
+      - name: Push CEAPI image to ACR
+        shell: pwsh
+        run: |
+          $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
+          docker push $image
 
       - name: Deploy ACI container group
+        shell: pwsh
         run: |
-          IMAGE="$ACR_NAME.azurecr.io/ceapi:$CEAPI_IMAGE_TAG"
-          az deployment group create \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/ceapi-aci.bicep \
-            --parameters \
-              location="$LOCATION" \
-              acrName="$ACR_NAME" \
-              prefix='atlas' \
-              containerImage="$IMAGE" \
-              ceapiContainerGroupName="$CEAPI_CONTAINER_GROUP" \
-              iceHost='${{ secrets.ICE_HOST }}' \
-              iceUsername='${{ secrets.ICE_USERNAME }}' \
-              icePassword='${{ secrets.ICE_PASSWORD }}' \
+          $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
+          az deployment group create `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --template-file infra/ceapi-aci.bicep `
+            --parameters `
+              location="$env:LOCATION" `
+              acrName="$env:ACR_NAME" `
+              prefix='atlas' `
+              containerImage="$image" `
+              ceapiContainerGroupName="$env:CEAPI_CONTAINER_GROUP" `
+              iceHost='${{ secrets.ICE_HOST }}' `
+              iceUsername='${{ secrets.ICE_USERNAME }}' `
+              icePassword='${{ secrets.ICE_PASSWORD }}' `
               symbols='${{ secrets.ICE_SYMBOLS }}'

@@ -3,25 +3,35 @@
 # C:\Users\Satyend.Appiah\OneDrive - Braemar plc\Documents\DELTA Drive\Scripts\Azure Deployments\Atlas\Atlas-main\Atlas-main\Java_SDK_01_031_0001
 # into CEAPI\bin\ before building.
 
-FROM mcr.microsoft.com/temurin:17-jdk-windowsservercore-ltsc2022
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop';"]
 
-WORKDIR /app
+WORKDIR C:\app
 
-# Copy project sources and libs into the image
-COPY . /app
+# Install Java 17 on the Windows base image.
+RUN Invoke-WebRequest -Uri "https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.zip" -OutFile "C:\jdk17.zip"; \
+    Expand-Archive -Path "C:\jdk17.zip" -DestinationPath "C:\"; \
+    $jdkRoot = (Get-ChildItem "C:\" -Directory | Where-Object { $_.Name -like 'jdk-*' } | Sort-Object Name | Select-Object -First 1).FullName; \
+    [System.Environment]::SetEnvironmentVariable('JAVA_HOME', $jdkRoot, 'Machine'); \
+    $envPath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine'); \
+    [System.Environment]::SetEnvironmentVariable('Path', "$envPath;$jdkRoot\bin", 'Machine'); \
+    Remove-Item "C:\jdk17.zip" -Force
 
-# Ensure native libraries are present at runtime under C:\app\bin
+# Copy project sources and libs into the image.
+COPY . C:/app
+
+# Ensure native libraries are present at runtime under C:\app\bin.
 # Copy PortLib_64VC17.dll and dbcapi_64VC17.dll from the local SDK folder into CEAPI\bin\ first.
 COPY bin/ C:/app/bin/
 
-# Build the project using the bundled Gradle wrapper. This produces classes/jars under build/.
-RUN powershell -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; .\gradlew.bat --no-daemon build -x test"
+# Build the project using Gradle. This produces classes/jars under build/.
+RUN .\gradlew.bat --no-daemon build -x test
 
-# Expose the websocket port (default configured in CEAPI/.env or Settings.fromEnv())
+# Expose the websocket port.
 EXPOSE 9002
 
-# Set JNA library path so the JStandard SDK can load the native DLLs
+# Set JNA library path so the JStandard SDK can load the native DLLs.
 ENV JAVA_TOOL_OPTIONS="-Djna.library.path=C:\\app\\bin"
 
-# Run the main class directly on the assembled classpath
+# Run the main class directly on the assembled classpath.
 ENTRYPOINT ["powershell", "-Command", "java -Djna.library.path=C:\\app\\bin -cp 'build\\libs\\*;lib\\*' com.braemar.ceapi.Main"]
