@@ -143,6 +143,7 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
     ]
     ipAddress: {
       type: 'Public'
+      dnsNameLabel: toLower('${prefix}-ceapi-${uniqueString(resourceGroup().id)}')
       ports: [
         {
           port: ceapiPort
