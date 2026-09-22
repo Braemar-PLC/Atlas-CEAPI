@@ -210,6 +210,9 @@ PublishScripts/
 !**/[Pp]ackages/build/
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
+# frontend/webapp/packages/* holds npm workspace source packages (@atlas/data, @atlas/external), not NuGet
+# restore output - the pattern above would otherwise silently exclude them from source control.
+!frontend/webapp/packages/*
 # NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets

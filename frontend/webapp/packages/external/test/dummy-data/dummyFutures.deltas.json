@@ -1,0 +1,882 @@
+[
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26M15-IDFX",
+        "fields": {
+            "last": 1.190081,
+            "netChange": 8.1e-05
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27J20-IDFX",
+        "fields": {
+            "last": 0.872381,
+            "netChange": -0.000619
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27H20-IDFX",
+        "fields": {
+            "last": 0.873872,
+            "netChange": 0.000872
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26J20-IDFX",
+        "fields": {
+            "bid": 0.87315,
+            "ask": 0.87334
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 2!-EEG",
+        "fields": {
+            "bid": 1.619,
+            "ask": 1.791
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "THE_TTF D1-EEG",
+        "fields": {
+            "bid": 1.593,
+            "ask": 1.771
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 4!-EEG",
+        "fields": {
+            "bid": 1.586,
+            "ask": 1.823
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26G15-IDFX",
+        "fields": {
+            "last": 1.189766,
+            "netChange": -0.000234
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26H15-IDFX",
+        "fields": {
+            "bid": 1.189322,
+            "ask": 1.189516
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "CEGHVTP_TTF D1-EEG",
+        "fields": {
+            "bid": 1.61,
+            "ask": 1.774
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 3!-EEG",
+        "fields": {
+            "last": 1.673
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26J15-IDFX",
+        "fields": {
+            "bid": 1.189333,
+            "ask": 1.189588
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26H-ICN",
+        "fields": {
+            "volume": 10160
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26J-ICN",
+        "fields": {
+            "volume": 10032
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 27J-ICN",
+        "fields": {
+            "last": 30.391,
+            "netChange": 0.191
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26Z-ICN",
+        "fields": {
+            "volume": 10038
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27G15-IDFX",
+        "fields": {
+            "last": 1.191127,
+            "netChange": 0.001127
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G8BM:G3BM 2!-EEG",
+        "fields": {
+            "bid": 1.622,
+            "ask": 1.82
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27G20-IDFX",
+        "fields": {
+            "bid": 0.872513,
+            "ask": 0.872738
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26Q-ICN",
+        "fields": {
+            "last": 30.506,
+            "netChange": 0.306
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 27H-ICN",
+        "fields": {
+            "volume": 10143
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26Z-ICN",
+        "fields": {
+            "last": 30.437,
+            "netChange": 0.237
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "THE_TTF D1-EEG",
+        "fields": {
+            "bidSize": 59,
+            "askSize": 92
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27G20-IDFX",
+        "fields": {
+            "bid": 0.872723,
+            "ask": 0.872878
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27J20-IDFX",
+        "fields": {
+            "last": 0.872038,
+            "netChange": -0.000962
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26M20-IDFX",
+        "fields": {
+            "last": 0.872883,
+            "netChange": -0.000117
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27G15-IDFX",
+        "fields": {
+            "bid": 1.189715,
+            "ask": 1.189926
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 27F-ICN",
+        "fields": {
+            "volume": 10140
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26X-ICN",
+        "fields": {
+            "volume": 10195
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26M15-IDFX",
+        "fields": {
+            "last": 1.190797,
+            "netChange": 0.000797
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 3!-EEG",
+        "fields": {
+            "bid": 1.595,
+            "ask": 1.785
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26J15-IDFX",
+        "fields": {
+            "last": 1.188933,
+            "netChange": -0.001067
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G8BM:G3BM 2!-EEG",
+        "fields": {
+            "bid": 1.62,
+            "ask": 1.824
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26J-ICN",
+        "fields": {
+            "volume": 10219
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27F15-IDFX",
+        "fields": {
+            "last": 1.18865,
+            "netChange": -0.00135
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 4!-EEG",
+        "fields": {
+            "bidSize": 72,
+            "askSize": 52
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G8BM:G3BM 3!-EEG",
+        "fields": {
+            "bid": 1.605,
+            "ask": 1.825
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26J20-IDFX",
+        "fields": {
+            "bid": 0.87327,
+            "ask": 0.873441
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26N-ICN",
+        "fields": {
+            "last": 30.517,
+            "netChange": 0.317
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26N-ICN",
+        "fields": {
+            "volume": 10278
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26M20-IDFX",
+        "fields": {
+            "last": 0.871717,
+            "netChange": -0.001283
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 27J-ICN",
+        "fields": {
+            "volume": 10034
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26H15-IDFX",
+        "fields": {
+            "bid": 1.190172,
+            "ask": 1.190322
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 27H-ICN",
+        "fields": {
+            "last": 30.522,
+            "netChange": 0.322
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26Z-ICN",
+        "fields": {
+            "volume": 10075
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 3!-EEG",
+        "fields": {
+            "last": 1.679
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26J20-IDFX",
+        "fields": {
+            "last": 0.872519,
+            "netChange": -0.000481
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26G15-IDFX",
+        "fields": {
+            "last": 1.190007,
+            "netChange": 7e-06
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27F20-IDFX",
+        "fields": {
+            "bid": 0.872935,
+            "ask": 0.873157
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26H-ICN",
+        "fields": {
+            "volume": 10243
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "CEGHVTP_TTF D1-EEG",
+        "fields": {
+            "bid": 1.62,
+            "ask": 1.779
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27F15-IDFX",
+        "fields": {
+            "last": 1.189138,
+            "netChange": -0.000862
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26J20-IDFX",
+        "fields": {
+            "bid": 0.872665,
+            "ask": 0.872892
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 3!-EEG",
+        "fields": {
+            "bid": 1.619,
+            "ask": 1.805
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26H15-IDFX",
+        "fields": {
+            "last": 1.190091,
+            "netChange": 9.1e-05
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BS:G3BS 3!-EEG",
+        "fields": {
+            "bid": 1.618,
+            "ask": 1.794
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G8BM:G3BM 2!-EEG",
+        "fields": {
+            "bid": 1.618,
+            "ask": 1.822
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27F15-IDFX",
+        "fields": {
+            "bid": 1.190268,
+            "ask": 1.190513
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26Z-ICN",
+        "fields": {
+            "last": 30.503,
+            "netChange": 0.303
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26M-ICN",
+        "fields": {
+            "last": 30.483,
+            "netChange": 0.283
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26K20-IDFX",
+        "fields": {
+            "bid": 0.872548,
+            "ask": 0.872737
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27J20-IDFX",
+        "fields": {
+            "last": 0.873223,
+            "netChange": 0.000223
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BS:G3BS 3!-EEG",
+        "fields": {
+            "bid": 1.59,
+            "ask": 1.814
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 27H-ICN",
+        "fields": {
+            "volume": 10127
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26X-ICN",
+        "fields": {
+            "volume": 10071
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27G20-IDFX",
+        "fields": {
+            "last": 0.872965,
+            "netChange": -3.5e-05
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27H20-IDFX",
+        "fields": {
+            "last": 0.872982,
+            "netChange": -1.8e-05
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 3!-EEG",
+        "fields": {
+            "last": 1.628
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27F20-IDFX",
+        "fields": {
+            "bid": 0.872616,
+            "ask": 0.872759
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27H15-IDFX",
+        "fields": {
+            "bid": 1.189523,
+            "ask": 1.189752
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BS:G3BS 2!-EEG",
+        "fields": {
+            "bid": 1.615,
+            "ask": 1.803
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26K-ICN",
+        "fields": {
+            "volume": 10234
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26H20-IDFX",
+        "fields": {
+            "bid": 0.87291,
+            "ask": 0.873151
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BS:G3BS 2!-EEG",
+        "fields": {
+            "bid": 1.616,
+            "ask": 1.802
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26M20-IDFX",
+        "fields": {
+            "last": 0.872609,
+            "netChange": -0.000391
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26N-ICN",
+        "fields": {
+            "last": 30.472,
+            "netChange": 0.272
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26J-ICN",
+        "fields": {
+            "volume": 10195
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26J-ICN",
+        "fields": {
+            "last": 30.587,
+            "netChange": 0.387
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 2!-EEG",
+        "fields": {
+            "bid": 1.601,
+            "ask": 1.821
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26N-ICN",
+        "fields": {
+            "last": 30.425,
+            "netChange": 0.225
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26N-ICN",
+        "fields": {
+            "last": 30.494,
+            "netChange": 0.294
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27J20-IDFX",
+        "fields": {
+            "bid": 0.87248,
+            "ask": 0.872655
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26M15-IDFX",
+        "fields": {
+            "bid": 1.190144,
+            "ask": 1.1903
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27G20-IDFX",
+        "fields": {
+            "bid": 0.8727,
+            "ask": 0.872874
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BM:G3BM 2!-EEG",
+        "fields": {
+            "bidSize": 76,
+            "askSize": 42
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26G20-IDFX",
+        "fields": {
+            "bid": 0.873165,
+            "ask": 0.873341
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26X-ICN",
+        "fields": {
+            "volume": 10162
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G8BM:G3BM 2!-EEG",
+        "fields": {
+            "bid": 1.621,
+            "ask": 1.8
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "CEGHVTP_TTF D1-EEG",
+        "fields": {
+            "bid": 1.596,
+            "ask": 1.775
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27H20-IDFX",
+        "fields": {
+            "bid": 0.872796,
+            "ask": 0.872979
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "G0BS:G3BS 3!-EEG",
+        "fields": {
+            "bid": 1.607,
+            "ask": 1.781
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26N-ICN",
+        "fields": {
+            "last": 30.491,
+            "netChange": 0.291
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26K20-IDFX",
+        "fields": {
+            "last": 0.87203,
+            "netChange": -0.00097
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26V-ICN",
+        "fields": {
+            "last": 30.481,
+            "netChange": 0.281
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 26K20-IDFX",
+        "fields": {
+            "bid": 0.872825,
+            "ask": 0.873019
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 27H15-IDFX",
+        "fields": {
+            "bid": 1.189365,
+            "ask": 1.189602
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURUSD 26K15-IDFX",
+        "fields": {
+            "bid": 1.189935,
+            "ask": 1.190125
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "TFM 26Z-ICN",
+        "fields": {
+            "volume": 10093
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "THE_TTF D1-EEG",
+        "fields": {
+            "bid": 1.609,
+            "ask": 1.773
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    },
+    {
+        "messageType": "Update",
+        "symbol": "EURGBP 27G20-IDFX",
+        "fields": {
+            "last": 0.872944,
+            "netChange": -5.6e-05
+        },
+        "timestamp": "2026-02-25T17:33:21.559+00:00"
+    }
+]
