@@ -30,9 +30,18 @@ dependencies {
     implementation 'io.github.cdimascio:dotenv-java:3.0.0'
     // WebSocket server — battle-tested RFC 6455 implementation
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
-    // CEAPI JARs
+    // CEAPI JARs — ICEesig-jstandard-api/-dbcjna plus the third-party jars ICE ships
+    // alongside them (Apache Commons, Jackson, JNA, org.json). Vendored as-is from the
+    // ICE SDK distribution rather than resolved from Maven, since the JStandard API is
+    // built/tested against these exact jar versions.
     implementation fileTree(dir: "${projectDir}/lib", include: ['*.jar'])
     implementation 'org.slf4j:slf4j-simple:2.0.13'
+    // Log4j2 — required by the JStandard API per its SDK README, but not bundled in the
+    // SDK's third-party folder (it's plain open-source, so pulled from Maven Central
+    // instead of vendoring).
+    implementation 'org.apache.logging.log4j:log4j-api:2.24.2'
+    implementation 'org.apache.logging.log4j:log4j-core:2.24.2'
+    implementation 'org.apache.logging.log4j:log4j-jcl:2.24.2'
 
     // Test
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
