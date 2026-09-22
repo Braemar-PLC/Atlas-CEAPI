@@ -37,8 +37,10 @@ bld/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
-# Uncomment if you have tasks that create the project's static files in wwwroot
-#wwwroot/
+# Atlas.Web.Api serves the frontend SPA build from wwwroot/ (populated by CI from frontend/webapp/dist);
+# keep the folder tracked via .gitkeep but ignore the generated build output.
+webapp/src/Atlas.Web.Api/wwwroot/*
+!webapp/src/Atlas.Web.Api/wwwroot/.gitkeep
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/

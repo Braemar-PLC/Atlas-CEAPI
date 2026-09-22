@@ -1,0 +1,2 @@
+This folder is populated at build time with the compiled frontend (frontend/webapp/dist).
+See .github/workflows/webapp-api-build-deploy.yml.
