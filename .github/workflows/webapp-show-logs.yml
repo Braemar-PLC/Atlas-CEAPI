@@ -53,9 +53,9 @@ jobs:
             --level information \
             --web-server-logging filesystem || true
 
-      - name: Tail live console (dotnet stdout/stderr) for 45 seconds
+      - name: Tail live console (dotnet stdout/stderr) for 2 minutes
         shell: bash
         run: |
-          timeout 45 az webapp log tail \
+          timeout 120 az webapp log tail \
             --resource-group "$RESOURCE_GROUP" \
             --name "$APPSERVICE_NAME" || true
