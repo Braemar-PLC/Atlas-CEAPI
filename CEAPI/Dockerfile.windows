@@ -56,18 +56,19 @@ RUN $requiredFiles = @( `
 # a real newline after the opening '@'). Build the type definition as a plain semicolon-joined
 # string instead.
 RUN $ErrorActionPreference = 'Stop'; `
-    $src = 'using System; using System.Runtime.InteropServices; public class NativeLoader { [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags); }'; `
+    $q = [char]34; `
+    $src = 'using System; using System.Runtime.InteropServices; public class NativeLoader { [DllImport(' + $q + 'kernel32.dll' + $q + ', SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags); }'; `
     Add-Type -TypeDefinition $src; `
     $vcFiles = @('C:\Windows\System32\vcruntime140.dll', 'C:\Windows\System32\vcruntime140_1.dll', 'C:\Windows\System32\msvcp140.dll'); `
-    foreach ($f in $vcFiles) { Write-Host "$f present: $(Test-Path -LiteralPath $f)" }; `
+    foreach ($f in $vcFiles) { Write-Host ($f + ' present: ' + (Test-Path -LiteralPath $f)) }; `
     $dlls = @('C:\app\bin\PortLib_64VC17.dll', 'C:\app\bin\dbcapi_64VC17.dll'); `
     foreach ($dll in $dlls) { `
         $h = [NativeLoader]::LoadLibraryEx($dll, [IntPtr]::Zero, 0); `
         if ($h -eq [IntPtr]::Zero) { `
             $err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error(); `
-            Write-Host "LoadLibraryEx FAILED for $dll : Win32 error $err"; `
+            Write-Host ('LoadLibraryEx FAILED for ' + $dll + ' : Win32 error ' + $err); `
         } else { `
-            Write-Host "LoadLibraryEx OK for $dll"; `
+            Write-Host ('LoadLibraryEx OK for ' + $dll); `
         } `
     }
 
