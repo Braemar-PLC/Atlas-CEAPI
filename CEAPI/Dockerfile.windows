@@ -48,6 +48,31 @@ RUN $requiredFiles = @( `
       if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required CEAPI runtime artifact missing: $path" } `
     }
 
+# Temporary diagnostic: attempt to LoadLibrary the ICE native DLLs directly at build time
+# so a real Win32 error code (e.g. 126 = dependency missing, with which dependency reported
+# via loader snaps) shows up in the build log instead of JNA's generic wrapper message.
+RUN $ErrorActionPreference = 'Stop'; `
+    Add-Type -TypeDefinition @' `
+using System; `
+using System.Runtime.InteropServices; `
+public class NativeLoader { `
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] `
+    public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags); `
+} `
+'@; `
+    $vcFiles = @('C:\Windows\System32\vcruntime140.dll', 'C:\Windows\System32\vcruntime140_1.dll', 'C:\Windows\System32\msvcp140.dll'); `
+    foreach ($f in $vcFiles) { Write-Host "$f present: $(Test-Path -LiteralPath $f)" }; `
+    $dlls = @('C:\app\bin\PortLib_64VC17.dll', 'C:\app\bin\dbcapi_64VC17.dll'); `
+    foreach ($dll in $dlls) { `
+        $h = [NativeLoader]::LoadLibraryEx($dll, [IntPtr]::Zero, 0); `
+        if ($h -eq [IntPtr]::Zero) { `
+            $err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error(); `
+            Write-Host "LoadLibraryEx FAILED for $dll : Win32 error $err"; `
+        } else { `
+            Write-Host "LoadLibraryEx OK for $dll"; `
+        } `
+    }
+
 EXPOSE 9002
 
 ENTRYPOINT ["C:\\app\\bin\\ceapi.bat"]
