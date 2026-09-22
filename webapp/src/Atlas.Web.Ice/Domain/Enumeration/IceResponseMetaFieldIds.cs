@@ -11,6 +11,7 @@ public enum IceResponseMetaFieldIds
     ExchangeTimeIso     = 15,
     BeaconTimeIso       = 16,
     SourceId            = 201,
-    LotSize             = 47,
+    // 47 used to be listed here as "LotSize". It is LRT_TYPE_MINUTESDELAYED in the ICE SDK, and it is
+    // deliberately NOT stripped: the screen uses it to show how old the prices are.
     RecordReset         = 416,
 }

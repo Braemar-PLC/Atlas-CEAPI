@@ -36,6 +36,15 @@ public class IceInterpreterTests
     }
 
     [Fact]
+    public void Interpret_MinutesDelayedField_IsKeptForTheClient()
+    {
+        // FieldId 47 = LRT_TYPE_MINUTESDELAYED in the ICE SDK. The screen needs it to say how old the prices are.
+        var envelope = new IceEnvelope("SYM", [(47, "10"), (19, "64.665")]);
+        var result = _sut.Interpret(envelope);
+        result!.Fields.Should().Contain(f => f.FieldId == 47 && f.Value == "10");
+    }
+
+    [Fact]
     public void Interpret_AllMetadataFields_ReturnsNull()
     {
         var envelope = new IceEnvelope("SYM", [(330, "sequenceNumber=..."), (568, "[0,0,0,0]")]);

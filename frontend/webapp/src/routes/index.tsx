@@ -1,15 +1,10 @@
 
-import { createFileRoute } from "@tanstack/react-router";
-import { StreamViewer } from "@/components/StreamViewer"; // camelCase file
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// If you want a thin wrapper, use createEventSource from your service:
-// import { createEventSource } from "@/domain/stream/services/eventSourceClient";
-
+// There is no home page: the address on its own (and the logo) opens the first tab.
+// It used to render StreamViewer, an empty shell, which is still in src/components but no longer used.
 export const Route = createFileRoute("/")({
-  component: () => {
-    //const connect = useEventStreamStore((s) => s.connect);
-
-
-    return <StreamViewer />;
-  }
+  beforeLoad: () => {
+    throw redirect({ to: "/natgas" });
+  },
 });

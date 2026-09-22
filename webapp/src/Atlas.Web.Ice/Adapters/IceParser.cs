@@ -12,7 +12,11 @@ public sealed class IceParser : IInboundParser
             if (root.ValueKind != JsonValueKind.Array || root.GetArrayLength() < 3)
                 return false;
 
-            if (!string.Equals(root[0].GetString(), "update", StringComparison.OrdinalIgnoreCase))
+            // "refresh" is the full snapshot CEAPI sends on subscribe; "update" is a delta.
+            // Both carry the same payload, and PricingStore merges fields, so they parse alike.
+            var messageType = root[0].GetString();
+            if (!string.Equals(messageType, "update", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(messageType, "refresh", StringComparison.OrdinalIgnoreCase))
                 return false;
 
             var symbol = root[1].GetString();

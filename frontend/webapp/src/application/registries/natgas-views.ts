@@ -11,6 +11,22 @@ export interface NatGasViewDefinition {
 }
 
 export const NatGasViews: NatGasViewDefinition[] = [
+  // First on purpose: every desk screen takes its columns from NatGasViews[0] (see natgas.view-model.ts).
+  // It replicates ICE's "Nat Gas TTF Flat Price" screen: same title, same 12 columns in the same order.
+  // Which ROWS a screen shows is not decided here any more - the API says (GET /api/screens/{key}).
+  // "bidBar" and "askBar" are the red and green bars, not data (see natgas.col-defs.ts).
+  {
+    key: "natgas-ttf-flat-price",
+    title: "Nat Gas TTF Flat Price",
+    route: "/natgas",
+    type: "grid",
+    symbols: ["TTF"],
+    fields: [
+      "bidBar", "bidSize", "bid", "ask", "askSize",
+      "askBar", "last", "netChange", "settle", "high", "low", "volume", "blockVolume"
+    ]
+  },
+
   {
     key: "natgas-nbp-overview",
     title: "NBP Overview",

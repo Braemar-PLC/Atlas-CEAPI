@@ -1,25 +1,48 @@
 
 import { createRootRoute, Link, Outlet } from '@tanstack/react-router'
 
-import { Route as AboutRoute } from './about'
-import { Route as TradeRoute } from './trades/route'
-import { Route as AdminRoute } from './admin'
 import { NotFound } from '@/components/NotFound'
+import { NavTabs } from '@/application/registries/nav-tabs'
 
+const tabStyle = {
+  padding: '8px 14px',
+  borderRadius: 4,
+  color: '#e6e6e6',
+  fontSize: 16,
+  fontWeight: 400,
+  whiteSpace: 'nowrap',
+} as const
 
 export const Route = createRootRoute({
   component: () => (
-    <>
-      <nav style={{ padding: 8, borderBottom: '1px solid #ddd' }}>
-        <Link to="/">Home</Link>{' | '}
-        <Link to={AboutRoute.to}> About</Link>{' | '}
-        <Link to={TradeRoute.to} preload="intent">Trades</Link>{' | '}
-        {/* <Link to={NatgasGridRoute.to} preload="intent">Natgas</Link>{' | '} */}
-        <Link to={AdminRoute.to} preload="intent">Admin</Link>
+    // The page is exactly one window tall: the bar on top, the screen filling the rest. The screen scrolls
+    // inside itself, which is what keeps its title and column headers in view ("freeze panes").
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Black bar with the logo at the left, as in Braemar's other desk apps. The logo file is the official
+          "light" version from braemar.com (off-white wordmark), so it needs a dark background behind it.
+          The tabs come from NavTabs and scroll sideways if there are ever more than fit. */}
+      <nav style={{ display: 'flex', alignItems: 'center', gap: 24, padding: '10px 16px', background: '#000', color: '#fff' }}>
+        <Link to="/" style={{ display: 'flex', flexShrink: 0 }}>
+          <img src="/braemar-logo-light.png" alt="Braemar" height={34} />
+        </Link>
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto' }}>
+          {NavTabs.map(tab => (
+            <Link
+              key={tab.to}
+              to={tab.to}
+              preload="intent"
+              style={tabStyle}
+              activeProps={{ style: { ...tabStyle, background: '#2b3a4e', color: '#ffffff' } }}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </div>
       </nav>
-      <Outlet />
-
-    </>
+      <main style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        <Outlet />
+      </main>
+    </div>
   ),
   notFoundComponent: NotFound,
 })

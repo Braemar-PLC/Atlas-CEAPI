@@ -119,4 +119,22 @@ public class IceParserTests
         envelope.Fields.Should().Contain(f => f.FieldId == 19 && f.Value == "64.665");
         envelope.Fields.Should().Contain(f => f.FieldId == 330);
     }
+
+    [Fact]
+    public void TryParse_RefreshType_ReturnsTrue()
+    {
+        // CEAPI sends one "refresh" (full snapshot) per symbol on subscribe, before any "update"
+        var json = Parse(@"[""refresh"",""TFM 26J-ICN"",[[1,""72""],[19,""64.665""]]]");
+        _sut.TryParse(json, out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public void TryParse_RefreshMessage_PopulatesSymbolAndFields()
+    {
+        var json = Parse(@"[""refresh"",""TFM 26J-ICN"",[[20,""64.61""],[21,""64.725""]]]");
+        _sut.TryParse(json, out var envelope).Should().BeTrue();
+        envelope.Symbol.Should().Be("TFM 26J-ICN");
+        envelope.Fields.Should().Contain(f => f.FieldId == 20 && f.Value == "64.61");
+        envelope.Fields.Should().Contain(f => f.FieldId == 21 && f.Value == "64.725");
+    }
 }

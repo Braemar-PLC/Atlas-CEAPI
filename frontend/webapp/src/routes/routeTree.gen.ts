@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './__root'
+import { Route as TtfTimeSpreadRouteImport } from './ttf-time-spread'
+import { Route as NbpRouteImport } from './nbp'
 import { Route as NatgasRouteImport } from './natgas'
 import { Route as ForbiddenRouteImport } from './forbidden'
 import { Route as AdminRouteImport } from './admin'
@@ -17,6 +19,16 @@ import { Route as TradesRouteRouteImport } from './trades/route'
 import { Route as IndexRouteImport } from './index'
 import { Route as TradesTradeIdRouteRouteImport } from './trades/$tradeId/route'
 
+const TtfTimeSpreadRoute = TtfTimeSpreadRouteImport.update({
+  id: '/ttf-time-spread',
+  path: '/ttf-time-spread',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NbpRoute = NbpRouteImport.update({
+  id: '/nbp',
+  path: '/nbp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NatgasRoute = NatgasRouteImport.update({
   id: '/natgas',
   path: '/natgas',
@@ -60,6 +72,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/forbidden': typeof ForbiddenRoute
   '/natgas': typeof NatgasRoute
+  '/nbp': typeof NbpRoute
+  '/ttf-time-spread': typeof TtfTimeSpreadRoute
   '/trades/$tradeId': typeof TradesTradeIdRouteRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +83,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/forbidden': typeof ForbiddenRoute
   '/natgas': typeof NatgasRoute
+  '/nbp': typeof NbpRoute
+  '/ttf-time-spread': typeof TtfTimeSpreadRoute
   '/trades/$tradeId': typeof TradesTradeIdRouteRoute
 }
 export interface FileRoutesById {
@@ -79,6 +95,8 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/forbidden': typeof ForbiddenRoute
   '/natgas': typeof NatgasRoute
+  '/nbp': typeof NbpRoute
+  '/ttf-time-spread': typeof TtfTimeSpreadRoute
   '/trades/$tradeId': typeof TradesTradeIdRouteRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +108,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/forbidden'
     | '/natgas'
+    | '/nbp'
+    | '/ttf-time-spread'
     | '/trades/$tradeId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +119,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/forbidden'
     | '/natgas'
+    | '/nbp'
+    | '/ttf-time-spread'
     | '/trades/$tradeId'
   id:
     | '__root__'
@@ -108,6 +130,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/forbidden'
     | '/natgas'
+    | '/nbp'
+    | '/ttf-time-spread'
     | '/trades/$tradeId'
   fileRoutesById: FileRoutesById
 }
@@ -118,10 +142,26 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ForbiddenRoute: typeof ForbiddenRoute
   NatgasRoute: typeof NatgasRoute
+  NbpRoute: typeof NbpRoute
+  TtfTimeSpreadRoute: typeof TtfTimeSpreadRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/ttf-time-spread': {
+      id: '/ttf-time-spread'
+      path: '/ttf-time-spread'
+      fullPath: '/ttf-time-spread'
+      preLoaderRoute: typeof TtfTimeSpreadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nbp': {
+      id: '/nbp'
+      path: '/nbp'
+      fullPath: '/nbp'
+      preLoaderRoute: typeof NbpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/natgas': {
       id: '/natgas'
       path: '/natgas'
@@ -193,6 +233,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ForbiddenRoute: ForbiddenRoute,
   NatgasRoute: NatgasRoute,
+  NbpRoute: NbpRoute,
+  TtfTimeSpreadRoute: TtfTimeSpreadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

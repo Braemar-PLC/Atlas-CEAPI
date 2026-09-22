@@ -21,5 +21,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Atlas.Web.Api\Atlas.Web.Api.csproj" />
     <ProjectReference Include="..\Atlas.Web.Core\Atlas.Web.Core.csproj" />
+    <ProjectReference Include="..\Atlas.Web.Ice\Atlas.Web.Ice.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The deployed configuration is under test, so the real file is used. -->
+    <None Include="..\Atlas.Web.Api\appsettings.json" Link="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

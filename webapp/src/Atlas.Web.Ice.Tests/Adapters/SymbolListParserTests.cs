@@ -84,4 +84,16 @@ public class SymbolListParserTests
 
         sut.IsValid(new[] { "AAA", "ZZZ" }).Should().BeFalse();
     }
+
+    [Fact]
+    public void IsValid_AcceptsSymbolsTheDeskScreensNeed_AlongsideTheHandKeptList()
+    {
+        var screens = new Moq.Mock<IScreenProvider>();
+        screens.Setup(s => s.SymbolsToSubscribe()).Returns(new[] { "TFM 26V-ICN", "TFM 26V:TFM26X-ICN" });
+        var options = Options.Create(new IceOptions { Symbols = new List<string> { "AAA" } });
+        var sut = new IceSymbolListParser(options, screens.Object);
+
+        sut.IsValid(new[] { "AAA", "TFM 26V:TFM26X-ICN" }).Should().BeTrue();
+        sut.IsValid(new[] { "ZZZ" }).Should().BeFalse();
+    }
 }
