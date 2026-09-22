@@ -4,6 +4,7 @@ using Atlas.Web.Ice.Domain.Services;
 using Atlas.Web.Ice.Tests.Fakes;
 using Atlas.Web.Ice.WebSocket;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 
@@ -24,7 +25,8 @@ public class IceReceiverTests
         new(
             wsFactory,
             processor ?? new Mock<IIceMessageProcessor>().Object,
-            options ?? DefaultOptions());
+            options ?? DefaultOptions(),
+            NullLogger<IceReceiver>.Instance);
 
     // ─────────────────────────────────────────
     // Connection
