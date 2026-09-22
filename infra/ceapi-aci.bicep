@@ -26,14 +26,13 @@ param iceUsername string
 param icePassword string
 
 @description('Comma-separated list of ICE symbols to subscribe to.')
-@secure()
 param symbols string = 'TFM 26J-ICN'
 
 @description('The ACI container group name.')
 param ceapiContainerGroupName string = '${prefix}-ceapi-aci'
 
 @description('The Key Vault name to create for storing the secret values.')
-param keyVaultName string = toLower('${prefix}kv')
+param keyVaultName string = toLower('${prefix}kv${uniqueString(resourceGroup().id)}')
 
 var logAnalyticsWorkspaceName = '${prefix}-law'
 var logAnalyticsWorkspaceSku = 'PerGB2018'
@@ -113,7 +112,7 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
             }
             {
               name: 'SYMBOLS'
-              secureValue: symbols
+              value: symbols
             }
             {
               name: 'WS_PORT'
