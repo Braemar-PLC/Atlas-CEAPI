@@ -23,6 +23,17 @@ ENV JAVA_HOME=C:\jdk-17
 ENV PATH=C:\jdk-17\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\
 ENV JAVA_TOOL_OPTIONS=-Djna.library.path=C:\app\bin
 
+# ICE's native libraries (dbcapi_64VC17.dll, PortLib_64VC17.dll) are built with the
+# Visual C++ toolset and depend on the VC++ runtime (vcruntime140.dll, msvcp140.dll, etc.),
+# which the minimal Server Core base image does not include. Without it, JNA's LoadLibrary
+# fails on the missing dependency and surfaces only a generic "Could not load libraries" error.
+RUN $ProgressPreference = 'SilentlyContinue'; `
+    $vcRedist = 'C:\\vc_redist.x64.exe'; `
+    Invoke-WebRequest -Uri 'https://aka.ms/vs/17/release/vc_redist.x64.exe' -OutFile $vcRedist; `
+    $proc = Start-Process -FilePath $vcRedist -ArgumentList '/install', '/quiet', '/norestart' -Wait -NoNewWindow -PassThru; `
+    Remove-Item $vcRedist -Force; `
+    if ($proc.ExitCode -notin @(0, 3010, 1638)) { throw "vc_redist install failed with exit code $($proc.ExitCode)" }
+
 # GitHub Actions builds the distribution before invoking Docker.
 COPY build/install/ceapi/ C:/app/
 COPY bin/ C:/app/bin/
