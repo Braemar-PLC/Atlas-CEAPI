@@ -53,8 +53,8 @@ jobs:
             --workspace "$WORKSPACE_ID" \
             --analytics-query "search * | distinct \$table | take 50" \
             --output table || true
-          echo "--- ContainerInstanceLog_CL (last 500 lines, most recent first) ---"
+          echo "--- ContainerInstanceLog_CL (last 30 minutes only, oldest first) ---"
           az monitor log-analytics query \
             --workspace "$WORKSPACE_ID" \
-            --analytics-query "ContainerInstanceLog_CL | order by TimeGenerated desc | take 500 | order by TimeGenerated asc | project TimeGenerated, Message" \
+            --analytics-query "ContainerInstanceLog_CL | where TimeGenerated > ago(30m) | order by TimeGenerated asc | project TimeGenerated, Message" \
             --output tsv || true
