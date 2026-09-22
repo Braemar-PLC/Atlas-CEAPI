@@ -20,7 +20,13 @@ RUN $ProgressPreference = 'SilentlyContinue'; `
     Remove-Item $jdkZip -Force
 
 ENV JAVA_HOME=C:\jdk-17
-ENV PATH=C:\jdk-17\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\
+# C:\app\bin is on PATH so Windows' DLL search order can resolve dbcapi_64VC17.dll's own
+# transitive dependencies (libssl-3-x64_64VC17.dll / libcrypto-3-x64_64VC17.dll, shipped
+# alongside it in the same folder). jna.library.path alone only tells JNA where to find the
+# *target* library to load - it does not add that directory to the OS-level search path used
+# to resolve that library's own dependencies, so without this dbcapi fails to load with
+# Win32 error 126 (ERROR_MOD_NOT_FOUND) even though the DLL itself is present and valid.
+ENV PATH=C:\app\bin;C:\jdk-17\bin;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\
 ENV JAVA_TOOL_OPTIONS=-Djna.library.path=C:\app\bin
 
 # ICE's native libraries (dbcapi_64VC17.dll, PortLib_64VC17.dll) are built with the
@@ -46,39 +52,6 @@ RUN $requiredFiles = @( `
     ); `
     foreach ($path in $requiredFiles) { `
       if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required CEAPI runtime artifact missing: $path" } `
-    }
-
-# Temporary diagnostic: attempt to LoadLibrary the ICE native DLLs directly at build time
-# so a real Win32 error code (e.g. 126 = dependency missing, with which dependency reported
-# via loader snaps) shows up in the build log instead of JNA's generic wrapper message.
-# NOTE: Docker's backtick line-continuation joins every line with a single space before
-# handing the instruction to the shell, which breaks PowerShell here-strings (they require
-# a real newline after the opening '@'). Build the type definition as a plain semicolon-joined
-# string instead.
-RUN $ErrorActionPreference = 'Stop'; `
-    $q = [char]34; `
-    $src = 'using System; using System.Runtime.InteropServices; public class NativeLoader { [DllImport(' + $q + 'kernel32.dll' + $q + ', SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags); }'; `
-    Add-Type -TypeDefinition $src; `
-    $vcFiles = @('C:\Windows\System32\vcruntime140.dll', 'C:\Windows\System32\vcruntime140_1.dll', 'C:\Windows\System32\msvcp140.dll'); `
-    foreach ($f in $vcFiles) { Write-Host ($f + ' present: ' + (Test-Path -LiteralPath $f)) }; `
-    $dlls = @('C:\app\bin\PortLib_64VC17.dll', 'C:\app\bin\dbcapi_64VC17.dll'); `
-    foreach ($dll in $dlls) { `
-        $h = [NativeLoader]::LoadLibraryEx($dll, [IntPtr]::Zero, 0); `
-        if ($h -eq [IntPtr]::Zero) { `
-            $err = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error(); `
-            Write-Host ('LoadLibraryEx FAILED for ' + $dll + ' : Win32 error ' + $err); `
-        } else { `
-            Write-Host ('LoadLibraryEx OK for ' + $dll); `
-        } `
-    }; `
-    Write-Host 'Retrying dbcapi load with C:\app\bin added to PATH...'; `
-    $env:PATH = 'C:\app\bin;' + $env:PATH; `
-    $h2 = [NativeLoader]::LoadLibraryEx('C:\app\bin\dbcapi_64VC17.dll', [IntPtr]::Zero, 0); `
-    if ($h2 -eq [IntPtr]::Zero) { `
-        $err2 = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error(); `
-        Write-Host ('LoadLibraryEx (with PATH) FAILED for dbcapi_64VC17.dll : Win32 error ' + $err2); `
-    } else { `
-        Write-Host 'LoadLibraryEx (with PATH) OK for dbcapi_64VC17.dll'; `
     }
 
 EXPOSE 9002
