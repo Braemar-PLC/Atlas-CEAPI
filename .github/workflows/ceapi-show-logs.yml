@@ -1,0 +1,40 @@
+name: CEAPI - Show container logs
+
+# Manual diagnostic workflow: dumps the current CEAPI container logs without touching the
+# build/deploy pipeline. Use this to inspect ICE connection status (IceConnectionManager logs
+# "ICE connecting...", "ICE connected: <host>", or "ICE error: <status>" on every attempt).
+on:
+  workflow_dispatch:
+
+jobs:
+  show-logs:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+      CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+
+    steps:
+      - name: Azure login using service principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Show CEAPI container state
+        shell: bash
+        run: |
+          az container show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CEAPI_CONTAINER_GROUP" \
+            --query "{state:instanceView.state, ip:ipAddress.ip, fqdn:ipAddress.fqdn, events:containers[0].instanceView.events}" \
+            --output json
+
+      - name: Show CEAPI container logs
+        shell: bash
+        run: |
+          az container logs \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CEAPI_CONTAINER_GROUP"
