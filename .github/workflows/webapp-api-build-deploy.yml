@@ -23,6 +23,7 @@ jobs:
       LOCATION: 'uksouth'
       APPSERVICE_NAME: ${{ secrets.APPSERVICE_NAME }}
       APPSERVICE_PLAN: ${{ secrets.APPSERVICE_PLAN }}
+      APPSERVICE_PLAN_RESOURCE_GROUP: ${{ secrets.APPSERVICE_PLAN_RESOURCE_GROUP }}
       CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
 
     steps:
@@ -99,6 +100,7 @@ jobs:
               prefix='atlas' \
               appServiceName="$APPSERVICE_NAME" \
               appServicePlanName="$APPSERVICE_PLAN" \
+              appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
               iceEndpoint="${{ steps.ceapi.outputs.fqdn }}"
 
       - name: Deploy App Service infrastructure
@@ -112,6 +114,7 @@ jobs:
               prefix='atlas' \
               appServiceName="$APPSERVICE_NAME" \
               appServicePlanName="$APPSERVICE_PLAN" \
+              appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
               iceEndpoint="${{ steps.ceapi.outputs.fqdn }}"
 
       - name: Deploy app package

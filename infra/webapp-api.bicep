@@ -9,11 +9,11 @@ param prefix string = 'atlas'
 @description('Name of the App Service to create or update.')
 param appServiceName string = '${prefix}-api'
 
-@description('Name of the App Service Plan to create or use.')
-param appServicePlanName string = '${prefix}-api-plan'
+@description('Name of the existing App Service Plan to deploy into. The subscription is at its UK South "Total VMs" quota limit, so this must be an existing Linux plan with spare capacity rather than a newly created one.')
+param appServicePlanName string
 
-@description('App Service Plan SKU. Single instance only — Atlas.Web.Api holds in-memory price state and an ICE websocket connection, so it must not scale out to multiple instances. Defaults to F1 (Free) because the subscription is currently at its "Total VMs" quota limit for dedicated (Basic/Standard) plans in this region; F1/D1 run on shared, multi-tenant compute and are not counted against that quota. NOTE: F1 has no Always On support and a 60 CPU-minute/day cap, so the persistent ICE websocket connection may be recycled when the app idles — move to B1+ once quota is increased.')
-param appServicePlanSku string = 'F1'
+@description('Resource group containing the existing App Service Plan (defaults to this deployment\'s resource group).')
+param appServicePlanResourceGroup string = resourceGroup().name
 
 @description('Hostname of the CEAPI WebSocket endpoint, e.g. the ACI FQDN from ceapi-aci.bicep output ceapiContainerGroupFqdn.')
 param iceEndpoint string
@@ -26,9 +26,6 @@ param aspNetCoreEnvironment string = 'Production'
 
 var appInsightsName = '${prefix}-api-ai'
 
-// F1/D1 (Free/Shared) plans don't support the "Always On" setting.
-var supportsAlwaysOn = !(appServicePlanSku == 'F1' || appServicePlanSku == 'D1')
-
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
   location: location
@@ -40,16 +37,11 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' = {
+// Existing Linux App Service Plan (e.g. BraemarLens-Dev-ASP) — not created here. Multiple Web Apps can share one
+// plan without consuming extra "Total VMs" quota, since the quota applies to the plan, not to each app on it.
+resource appServicePlan 'Microsoft.Web/serverfarms@2024-04-01' existing = {
   name: appServicePlanName
-  location: location
-  sku: {
-    name: appServicePlanSku
-  }
-  kind: 'linux'
-  properties: {
-    reserved: true
-  }
+  scope: resourceGroup(appServicePlanResourceGroup)
 }
 
 resource appService 'Microsoft.Web/sites@2024-04-01' = {
@@ -61,7 +53,7 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|8.0'
-      alwaysOn: supportsAlwaysOn
+      alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       appSettings: [

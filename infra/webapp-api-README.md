@@ -24,10 +24,17 @@ since a second instance would hold its own independent in-memory state and its o
 
 ## Required Azure setup
 
-- Resource group: `BraemarAtlas-Development-RG` (same as CEAPI)
+- Resource group for the App Service (Site) itself: `BraemarAtlas-Development-RG` (same as CEAPI) — passed as
+  `RESOURCE_GROUP`.
 - The CEAPI ACI container group must already be deployed (see `infra/ceapi-aci-README.md`) — this workflow reads
   its FQDN to configure the API's ICE endpoint.
-- App Service Plan (Linux) + App Service (.NET 8) — created/updated by `infra/webapp-api.bicep`.
+- App Service Plan: this deployment **does not create its own plan**. It attaches the `atlas-api` Web App to an
+  existing Linux App Service Plan — `BraemarLens-Dev-ASP` (Basic B2) in resource group
+  `BraemarLens-Development-RG` — because the subscription's UK South "Total VMs" quota is fully consumed and no
+  new dedicated plan can be created there. Attaching a Web App to an existing plan does not consume additional
+  quota; the quota applies to the plan (the underlying VM(s)), not to each app hosted on it.
+- App Service (.NET 8) — created/updated by `infra/webapp-api.bicep` in `RESOURCE_GROUP`, referencing the
+  existing plan cross-resource-group via `resourceId(appServicePlanResourceGroup, 'Microsoft.Web/serverfarms', appServicePlanName)`.
 
 ## Required GitHub secrets
 
@@ -35,7 +42,8 @@ In addition to the secrets already used by the CEAPI workflow (`AZURE_CREDENTIAL
 `CEAPI_CONTAINER_GROUP`), add:
 
 - `APPSERVICE_NAME` — e.g. `atlas-api`
-- `APPSERVICE_PLAN` — e.g. `atlas-api-plan`
+- `APPSERVICE_PLAN` — name of the **existing** App Service Plan, e.g. `BraemarLens-Dev-ASP`
+- `APPSERVICE_PLAN_RESOURCE_GROUP` — resource group containing that existing plan, e.g. `BraemarLens-Development-RG`
 
 ## Local build check
 
@@ -62,20 +70,9 @@ Then browse to the API's URL (e.g. `https://localhost:7001`) — it should serve
   forwards plain HTTP to the container; without it, `UseHttpsRedirection` would redirect-loop.
 - Application Insights is provisioned automatically (`${prefix}-api-ai`) and wired via
   `APPLICATIONINSIGHTS_CONNECTION_STRING`.
+- The App Service Plan (`BraemarLens-Dev-ASP`, Basic B2) supports "Always On", so the persistent ICE websocket
+  connection (`IceReceiver`) stays alive without idling out, unlike the previously-attempted F1 (Free) tier.
+- Since the plan is shared with other apps, keep an eye on its overall CPU/memory usage — `atlas-api` must stay
+  a single instance (no scale-out), but other apps on the same plan scaling up could still affect its available
+  compute.
 
-## App Service Plan SKU: temporarily F1 (Free)
-
-`appServicePlanSku` defaults to `F1` because the subscription is currently at its "Total VMs" quota limit for
-dedicated (Basic/Standard/Premium) App Service Plans in this region. F1/D1 run on shared, multi-tenant compute
-and are not counted against that quota, so they deploy without needing a quota increase.
-
-**Trade-offs to be aware of on F1:**
-- No "Always On" support — the app can idle/unload after ~20 minutes with no requests, which will drop the
-  persistent ICE websocket connection (`IceReceiver`) until the next request wakes the app back up.
-- Capped at 60 CPU-minutes/day; a long-lived websocket connection processing continuous price ticks can exhaust
-  this quickly.
-- 1 GB storage, no custom domain SSL binding, no scaling.
-
-**Once the UK South "Total VMs" quota is increased (or an existing dedicated plan is freed up)**, redeploy with
-`appServicePlanSku` set to `B1` or higher (e.g. pass `-p appServicePlanSku=B1` to the Bicep deployment, or add an
-`APPSERVICE_SKU` GitHub secret/workflow input) to restore Always On and remove the CPU cap.
