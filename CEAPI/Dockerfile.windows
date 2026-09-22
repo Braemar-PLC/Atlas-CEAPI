@@ -70,6 +70,15 @@ RUN $ErrorActionPreference = 'Stop'; `
         } else { `
             Write-Host ('LoadLibraryEx OK for ' + $dll); `
         } `
+    }; `
+    Write-Host 'Retrying dbcapi load with C:\app\bin added to PATH...'; `
+    $env:PATH = 'C:\app\bin;' + $env:PATH; `
+    $h2 = [NativeLoader]::LoadLibraryEx('C:\app\bin\dbcapi_64VC17.dll', [IntPtr]::Zero, 0); `
+    if ($h2 -eq [IntPtr]::Zero) { `
+        $err2 = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error(); `
+        Write-Host ('LoadLibraryEx (with PATH) FAILED for dbcapi_64VC17.dll : Win32 error ' + $err2); `
+    } else { `
+        Write-Host 'LoadLibraryEx (with PATH) OK for dbcapi_64VC17.dll'; `
     }
 
 EXPOSE 9002
