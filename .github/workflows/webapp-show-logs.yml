@@ -1,0 +1,43 @@
+name: Web App - Show App Insights logs
+
+# Manual diagnostic workflow: dumps recent Atlas.Web.Api traces/exceptions from Application
+# Insights without touching the build/deploy pipeline. Use this to check whether IceReceiver is
+# connecting to CEAPI (look for "Connecting to CEAPI WebSocket", "Connected to CEAPI WebSocket",
+# or "Failed to connect to CEAPI WebSocket" trace/exception messages).
+on:
+  workflow_dispatch:
+
+jobs:
+  show-logs:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+
+    steps:
+      - name: Azure login using service principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Query recent traces/exceptions from Application Insights
+        shell: bash
+        run: |
+          APP_ID=$(az monitor app-insights component show \
+            --resource-group "$RESOURCE_GROUP" \
+            --app atlas-api-ai \
+            --query appId -o tsv)
+          echo "App Insights app id: $APP_ID"
+          echo "--- traces (last 30 minutes, oldest first) ---"
+          az monitor app-insights query \
+            --app "$APP_ID" \
+            --analytics-query "traces | where timestamp > ago(30m) | order by timestamp asc | project timestamp, message, severityLevel" \
+            --output tsv || true
+          echo "--- exceptions (last 30 minutes, oldest first) ---"
+          az monitor app-insights query \
+            --app "$APP_ID" \
+            --analytics-query "exceptions | where timestamp > ago(30m) | order by timestamp asc | project timestamp, outerMessage, innermostMessage" \
+            --output tsv || true
