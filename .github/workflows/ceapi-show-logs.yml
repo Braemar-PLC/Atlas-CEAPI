@@ -32,9 +32,29 @@ jobs:
             --query "{state:instanceView.state, ip:ipAddress.ip, fqdn:ipAddress.fqdn, events:containers[0].instanceView.events}" \
             --output json
 
-      - name: Show CEAPI container logs
+      - name: Show CEAPI container logs (az container logs — not supported for Windows containers, expect empty)
         shell: bash
         run: |
           az container logs \
             --resource-group "$RESOURCE_GROUP" \
-            --name "$CEAPI_CONTAINER_GROUP"
+            --name "$CEAPI_CONTAINER_GROUP" || true
+
+      - name: Query CEAPI stdout/stderr from Log Analytics
+        shell: bash
+        run: |
+          az extension add -n log-analytics --only-show-errors || true
+          WORKSPACE_ID=$(az monitor log-analytics workspace show \
+            --resource-group "$RESOURCE_GROUP" \
+            --workspace-name atlas-law \
+            --query customerId -o tsv)
+          echo "Workspace customer id: $WORKSPACE_ID"
+          echo "--- Table names available ---"
+          az monitor log-analytics query \
+            --workspace "$WORKSPACE_ID" \
+            --analytics-query "search * | distinct \$table | take 50" \
+            --output table || true
+          echo "--- ContainerInstanceLog_CL (last 500 lines, most recent first) ---"
+          az monitor log-analytics query \
+            --workspace "$WORKSPACE_ID" \
+            --analytics-query "ContainerInstanceLog_CL | order by TimeGenerated desc | take 500 | order by TimeGenerated asc | project TimeGenerated, Message" \
+            --output tsv || true
