@@ -62,3 +62,20 @@ Then browse to the API's URL (e.g. `https://localhost:7001`) — it should serve
   forwards plain HTTP to the container; without it, `UseHttpsRedirection` would redirect-loop.
 - Application Insights is provisioned automatically (`${prefix}-api-ai`) and wired via
   `APPLICATIONINSIGHTS_CONNECTION_STRING`.
+
+## App Service Plan SKU: temporarily F1 (Free)
+
+`appServicePlanSku` defaults to `F1` because the subscription is currently at its "Total VMs" quota limit for
+dedicated (Basic/Standard/Premium) App Service Plans in this region. F1/D1 run on shared, multi-tenant compute
+and are not counted against that quota, so they deploy without needing a quota increase.
+
+**Trade-offs to be aware of on F1:**
+- No "Always On" support — the app can idle/unload after ~20 minutes with no requests, which will drop the
+  persistent ICE websocket connection (`IceReceiver`) until the next request wakes the app back up.
+- Capped at 60 CPU-minutes/day; a long-lived websocket connection processing continuous price ticks can exhaust
+  this quickly.
+- 1 GB storage, no custom domain SSL binding, no scaling.
+
+**Once the UK South "Total VMs" quota is increased (or an existing dedicated plan is freed up)**, redeploy with
+`appServicePlanSku` set to `B1` or higher (e.g. pass `-p appServicePlanSku=B1` to the Bicep deployment, or add an
+`APPSERVICE_SKU` GitHub secret/workflow input) to restore Always On and remove the CPU cap.
