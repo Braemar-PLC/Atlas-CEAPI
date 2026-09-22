@@ -51,15 +51,13 @@ RUN $requiredFiles = @( `
 # Temporary diagnostic: attempt to LoadLibrary the ICE native DLLs directly at build time
 # so a real Win32 error code (e.g. 126 = dependency missing, with which dependency reported
 # via loader snaps) shows up in the build log instead of JNA's generic wrapper message.
+# NOTE: Docker's backtick line-continuation joins every line with a single space before
+# handing the instruction to the shell, which breaks PowerShell here-strings (they require
+# a real newline after the opening '@'). Build the type definition as a plain semicolon-joined
+# string instead.
 RUN $ErrorActionPreference = 'Stop'; `
-    Add-Type -TypeDefinition @' `
-using System; `
-using System.Runtime.InteropServices; `
-public class NativeLoader { `
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] `
-    public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags); `
-} `
-'@; `
+    $src = 'using System; using System.Runtime.InteropServices; public class NativeLoader { [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags); }'; `
+    Add-Type -TypeDefinition $src; `
     $vcFiles = @('C:\Windows\System32\vcruntime140.dll', 'C:\Windows\System32\vcruntime140_1.dll', 'C:\Windows\System32\msvcp140.dll'); `
     foreach ($f in $vcFiles) { Write-Host "$f present: $(Test-Path -LiteralPath $f)" }; `
     $dlls = @('C:\app\bin\PortLib_64VC17.dll', 'C:\app\bin\dbcapi_64VC17.dll'); `
