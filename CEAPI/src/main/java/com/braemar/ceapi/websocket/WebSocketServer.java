@@ -4,6 +4,8 @@ package com.braemar.ceapi.websocket;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import java.net.InetSocketAddress;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 import com.braemar.ceapi.utility.Observable;
 
@@ -14,8 +16,8 @@ import com.braemar.ceapi.utility.Observable;
  * implementation. This class owns no protocol logic — it only wires the
  * library's callbacks to application-level interfaces.
  *
- * Exactly one client connection is expected (the Web API). If a second client
- * connects it replaces the tracked session; the previous one is closed.
+ * The Web API may have more than one worker during an App Service deployment
+ * or when scaled out, so each active connection receives relay messages.
  *
  * Lifecycle:
  * 1. Construct with port and emitters.
@@ -39,7 +41,7 @@ public class WebSocketServer extends org.java_websocket.server.WebSocketServer
     private final Observable<ClientConnectedEvent> clientConnectedEvents;
     private final Observable<ClientDisconnectedEvent> clientDisconnectedEvents;
 
-    private volatile WebSocket currentClient;
+    private final Set<WebSocket> clients = ConcurrentHashMap.newKeySet();
 
     public WebSocketServer(int port,
             Observable<String> commandEvents,
@@ -80,50 +82,39 @@ public class WebSocketServer extends org.java_websocket.server.WebSocketServer
 
     // --- QuotePublisher ---
 
-    /** Sends a message to the currently connected client. No-op if none. */
+    /** Sends a message to every connected client. No-op if none. */
     @Override
     public void publish(String message) {
-        WebSocket client = currentClient;
-        if (client != null && client.isOpen()) {
-
-            System.out.println(message);
-
-            client.send(message);
+        for (WebSocket client : clients) {
+            if (client.isOpen()) {
+                client.send(message);
+            }
         }
     }
 
-    /** Returns true if a client is currently connected and open. */
+    /** Returns true if at least one client is currently connected and open. */
     public boolean hasClient() {
-        WebSocket client = currentClient;
-        return client != null && client.isOpen();
+        return clients.stream().anyMatch(WebSocket::isOpen);
     }
 
     // --- Java-WebSocket callbacks ---
 
     @Override
-    public void onOpen(WebSocket conn, ClientHandshake handshake) {
+    public synchronized void onOpen(WebSocket conn, ClientHandshake handshake) {
         log.info("Client connected: " + conn.getRemoteSocketAddress());
 
-        // Close any previous session — only one client is expected
-        WebSocket previous = currentClient;
-        if (previous != null && previous.isOpen()) {
-            log.info("Replacing previous client connection");
-            previous.close();
+        if (clients.add(conn) && clients.size() == 1) {
+            clientConnectedEvents.raise(new ClientConnectedEvent());
         }
-        currentClient = conn;
-
-        // Emit client-connected event
-        clientConnectedEvents.raise(new ClientConnectedEvent());
     }
 
     @Override
-    public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+    public synchronized void onClose(WebSocket conn, int code, String reason, boolean remote) {
         log.info("Client disconnected (code=" + code + ", remote=" + remote + ")");
-        if (currentClient == conn) {
-            currentClient = null;
-        }
 
-        clientDisconnectedEvents.raise(new ClientDisconnectedEvent());
+        if (clients.remove(conn) && clients.isEmpty()) {
+            clientDisconnectedEvents.raise(new ClientDisconnectedEvent());
+        }
     }
 
     @Override

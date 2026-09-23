@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,12 +20,14 @@ class WebSocketServerIntegrationTest {
 
     private static final int TEST_PORT = 19001;
     private Observable<ClientConnectedEvent> serverConnectEvents;
+    private Observable<ClientDisconnectedEvent> serverDisconnectEvents;
     private WebSocketServer server;
 
     @BeforeEach
     void setUp() throws InterruptedException {
         serverConnectEvents = new Observable<>();
-        server = makeServer(TEST_PORT, new Observable<>(), serverConnectEvents);
+        serverDisconnectEvents = new Observable<>();
+        server = makeServer(TEST_PORT, new Observable<>(), serverConnectEvents, serverDisconnectEvents);
         server.start();
         Thread.sleep(100);
     }
@@ -63,7 +66,7 @@ void commandEvents_receivesCommandSentByClient() throws Exception {
     commandEvents.subscribe(commands::add);
 
     server.stop();
-    server = makeServer(TEST_PORT + 1, commandEvents, connectEvents);
+    server = makeServer(TEST_PORT + 1, commandEvents, connectEvents, new Observable<>());
     serverConnectEvents = connectEvents;
     server.start();
     Thread.sleep(100);
@@ -129,6 +132,33 @@ void commandEvents_receivesCommandSentByClient() throws Exception {
         client2.closeBlocking();
     }
 
+    @Test
+    void multipleClients_receiveMessages_andOnlyLastDisconnectRaisesEvent() throws Exception {
+        BlockingQueue<String> firstMessages = new LinkedBlockingQueue<>();
+        BlockingQueue<String> secondMessages = new LinkedBlockingQueue<>();
+        CountDownLatch disconnected = new CountDownLatch(1);
+        AtomicInteger connected = new AtomicInteger();
+        serverDisconnectEvents.subscribe(event -> disconnected.countDown());
+        serverConnectEvents.subscribe(event -> connected.incrementAndGet());
+
+        TestClient firstClient = new TestClient(TEST_PORT, firstMessages);
+        TestClient secondClient = new TestClient(TEST_PORT, secondMessages);
+        connectAndAwaitServerOpen(firstClient);
+        connectAndAwaitServerOpen(secondClient);
+        assertEquals(1, connected.get(), "only the first client should start ICE");
+
+        server.publish("[\"update\",\"TFM\",[[2003,\"51.12\"]]]");
+
+        assertEquals("[\"update\",\"TFM\",[[2003,\"51.12\"]]]", firstMessages.poll(2, TimeUnit.SECONDS));
+        assertEquals("[\"update\",\"TFM\",[[2003,\"51.12\"]]]", secondMessages.poll(2, TimeUnit.SECONDS));
+
+        firstClient.closeBlocking();
+        assertFalse(disconnected.await(200, TimeUnit.MILLISECONDS), "disconnect raised while another client remained");
+
+        secondClient.closeBlocking();
+        assertTrue(disconnected.await(2, TimeUnit.SECONDS), "last client disconnect was not raised");
+    }
+
     // --- Helpers ---
 
     private void connectAndAwaitServerOpen(TestClient client) throws Exception {
@@ -144,8 +174,9 @@ void commandEvents_receivesCommandSentByClient() throws Exception {
 
     private static WebSocketServer makeServer(int port,
             Observable<String> commandEvents,
-            Observable<ClientConnectedEvent> clientConnectedEvents) {
-        return new WebSocketServer(port, commandEvents, clientConnectedEvents, new Observable<>());
+            Observable<ClientConnectedEvent> clientConnectedEvents,
+            Observable<ClientDisconnectedEvent> clientDisconnectedEvents) {
+        return new WebSocketServer(port, commandEvents, clientConnectedEvents, clientDisconnectedEvents);
     }
 
     static class TestClient extends WebSocketClient {
