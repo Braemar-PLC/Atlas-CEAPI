@@ -52,7 +52,7 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
     serverFarmId: appServicePlan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|8.0'
+      linuxFxVersion: 'DOTNETCORE|10.0'
       alwaysOn: true
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'

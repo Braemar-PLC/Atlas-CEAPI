@@ -56,7 +56,8 @@ public sealed class IceReceiver : IHostedService
             await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Stopping", ct);
         }
     }
-        private async Task RunAsync(CancellationToken ct)
+
+    private async Task RunAsync(CancellationToken ct)
     {
         var attempt = 0;
         while (!ct.IsCancellationRequested)
@@ -78,7 +79,11 @@ public sealed class IceReceiver : IHostedService
             catch (Exception ex)
             {
                 var delay = BackoffSequence[Math.Min(attempt, BackoffSequence.Length - 1)];
-                _logger.LogWarning(ex, "Failed to connect to CEAPI WebSocket at {Uri}; retrying in {Delay}", _options.WebSocketUri, delay);
+                _logger.LogWarning(
+                    ex,
+                    "Failed to connect to CEAPI WebSocket at {Uri}; retrying in {Delay}",
+                    _options.WebSocketUri,
+                    delay);
                 attempt++;
                 try { await Task.Delay(delay, ct); }
                 catch (OperationCanceledException) { return; }

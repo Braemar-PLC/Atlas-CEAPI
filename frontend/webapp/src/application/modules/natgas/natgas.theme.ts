@@ -30,14 +30,14 @@ export const iceScreenTheme = themeQuartz.withParams({
   headerColumnBorder: { color: "#c3c8cf" },
   // The line between two headers is the handle for resizing a column ("column width should be a slider" -
   // Harrison Lee, 21 Sep 2026). Darker, thicker and full height, so it reads as something to grab.
-  headerColumnResizeHandleColor: "#6b7480",
+  headerColumnResizeHandleColor: "#979ea8",
   headerColumnResizeHandleHeight: "100%",
   headerColumnResizeHandleWidth: 3,
   headerRowBorder: false,
   wrapperBorder: false,
   wrapperBorderRadius: 0,
 
-  rowHoverColor: "#141414",
+  rowHoverColor: "#2b4a8c",
   selectedRowBackgroundColor: "#2b4a8c",
   // Highlighter yellow behind Last for the moment it changes. natgas.css turns the figure black meanwhile.
   valueChangeValueHighlightBackgroundColor: "#ffff00",

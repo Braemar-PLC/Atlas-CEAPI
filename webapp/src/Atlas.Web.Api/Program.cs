@@ -20,13 +20,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Azure App Service terminates TLS at its front end and forwards plain HTTP to the container, so without this
-// the app would see every request as HTTP and UseHttpsRedirection below would redirect-loop. App Service's edge
-// isn't a fixed, known proxy address, so the known-network/proxy allow-lists are cleared to trust its headers.
+// App Service terminates TLS before forwarding requests to this Linux app. Trust its
+// forwarding headers so HTTPS redirection observes the original client scheme.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
+    options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
@@ -44,18 +43,14 @@ if (app.Environment.IsDevelopment())
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 
-// Serve the built frontend SPA (frontend/webapp/dist, copied into wwwroot/ at build time) from this same
-// App Service, so the browser and the API share one origin with no CORS/proxy setup required.
+// The deployment workflow places the built React SPA in wwwroot, allowing the UI and
+// API to remain under one App Service origin.
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseAuthorization();
 app.MapControllers();
-
-// Any request that isn't an API route or a static asset falls back to index.html so TanStack Router can
-// handle client-side routes (e.g. /admin, /natgas) on a full page load or refresh.
 app.MapFallbackToFile("index.html");
-
 app.Run();
 
 static void ConfigureDI(IServiceCollection services)
