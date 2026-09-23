@@ -24,7 +24,14 @@ const defaultColDef: ColDef = {
     minWidth: 40,
 };
 
-const rowSelection: RowSelectionOptions = { mode: "singleRow", checkboxes: false, enableClickSelection: true };
+// One row at a time; a click selects it and a second click on the same row clears it (without that option AG Grid
+// only clears on Ctrl+click).
+const rowSelection: RowSelectionOptions = {
+  mode: "singleRow",
+  checkboxes: false,
+  enableClickSelection: true,
+  enableSelectionWithoutKeys: true,
+};
 
 // A stable id per row lets the grid update changed cells in place instead of rebuilding every row on each tick.
 const rowId = (p: GetRowIdParams) => `${p.data.symbol}|${p.data.tenor}`;

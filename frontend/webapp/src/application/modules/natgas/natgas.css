@@ -74,6 +74,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Figures and their headers are centred; Strip is left-aligned (the AG Grid default). */
+.ice-screen .ag-cell.ice-centred {
+  text-align: center;
+}
+.ice-screen .ag-header-cell.ice-centred-header .ag-header-cell-label {
+  justify-content: center;
+}
+
 /* Red beside the bid side, green beside the offer side. They keep their colour on a selected row. */
 .ice-screen .ag-cell.ice-bar {
   padding: 0;

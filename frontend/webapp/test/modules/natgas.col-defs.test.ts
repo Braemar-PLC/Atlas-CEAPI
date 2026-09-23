@@ -34,6 +34,17 @@ describe("natgas column definitions (ICE screen replica)", () => {
     expect(ids.indexOf("askBar")).toBe(ids.indexOf("last") - 1);
   });
 
+  it("centres every figure column and its header; Strip stays left-aligned", () => {
+    const figures = colDefs.filter(c => c.field && c.field !== "tenor");
+
+    expect(figures.length).toBeGreaterThan(0);
+    expect(figures.every(c => String(c.cellClass).split(" ").includes("ice-centred"))).toBe(true);
+    expect(figures.every(c => c.headerClass === "ice-centred-header")).toBe(true);
+    expect(figures.some(c => c.type === "rightAligned")).toBe(false);
+    expect(byField("tenor")!.cellClass).toBeUndefined();
+    expect(byField("tenor")!.headerClass).toBeUndefined();
+  });
+
   it("shows prices to 3 decimals and quantities as whole numbers", () => {
     expect(format(byField("bid"), 77.85)).toBe("77.850");
     expect(format(byField("netChange"), -0.135)).toBe("-0.135");

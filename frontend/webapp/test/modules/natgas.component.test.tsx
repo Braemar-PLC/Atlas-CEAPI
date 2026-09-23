@@ -92,3 +92,31 @@ describe("NatGasComponent column widths", () => {
     expect(screen.queryByRole("button", { name: "Reset columns" })).toBeNull();
   });
 });
+
+describe("NatGasComponent row selection", () => {
+  const selectedStrips = (api: GridApi) => api.getSelectedNodes().map(n => n.data.tenor);
+  const cellOfRow = (index: number) =>
+    document.querySelector(`.ag-center-cols-container .ag-row[row-index="${index}"] .ag-cell`) as HTMLElement;
+
+  it("a click selects the row, and a second click on the same row clears it", async () => {
+    // Sean, 23 Sep 2026: "want to be able to get rid of a blue click".
+    const { api } = await renderScreen();
+    await waitFor(() => expect(cellOfRow(0)).not.toBeNull());
+
+    fireEvent.click(cellOfRow(0));
+    expect(selectedStrips(api)).toEqual(["Oct26"]);
+
+    fireEvent.click(cellOfRow(0));
+    expect(selectedStrips(api)).toEqual([]);
+  });
+
+  it("clicking another row moves the selection rather than adding to it", async () => {
+    const { api } = await renderScreen();
+    await waitFor(() => expect(cellOfRow(1)).not.toBeNull());
+
+    fireEvent.click(cellOfRow(0));
+    fireEvent.click(cellOfRow(1));
+
+    expect(selectedStrips(api)).toEqual(["Nov26"]);
+  });
+});

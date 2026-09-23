@@ -24,7 +24,7 @@ It is not used; the real lockfile is the one here. It arrived with the merge of 
 
 ## Baseline on 2026-09-21 — do not make these numbers worse
 
-- **Tests:** 106 pass in 12 files (67 in 8 before the desk-screens and grid-sizing work of 2026-09-21). A 13th file, `test/pages/NatgasGridPage.test.tsx`, fails to load because it mocks
+- **Tests:** 122 pass in 15 files (67 in 8 before the desk-screens and grid-sizing work of 2026-09-21). A 16th file, `test/pages/NatgasGridPage.test.tsx`, fails to load because it mocks
   `@/application/sources`, which no longer exists. That failure is inherited, not an environment problem.
 - **Type-check:** clean.
 - **Lint:** 15 errors, all inherited — mostly `no-explicit-any`, plus two `react-hooks/rules-of-hooks`
@@ -172,6 +172,14 @@ scheme inside the grid. The reference is the 17 Sep photo of ICE's "Nat Gas TTF 
   2026-09-21, the same module with a different screen key. `ComingSoon` ("not built yet" rather than a faked
   screen) is no longer used by any route; keep it for the next desk's tab. The bar is meant to take the other desks'
   screens too (Coal, …). **RBAC is planned, not started:** tabs will be filtered by desk/group.
+- **Sign-in is the platform's, not the app's** (root notes, "Hosting"): on Azure, App Service Authentication signs
+  the user in before any request reaches the API. The app only *reads* it: `fetchSignIn` (`packages/external`,
+  `GET /.auth/me`) yields `signedIn` (name + email), `signedOut` (401, or nobody listed) or `notConfigured` (the
+  answer is not the platform's — on the laptop the dev server returns the page itself, and the app carries on as if
+  there were no sign-in). `useSignIn` asks once; `SignedInAs` in the top bar shows the name and a Sign out link
+  (`/.auth/logout`) only when signed in. `reloadIfSignedOut` runs when a screen refresh or the price stream fails:
+  if the reason is an expired sign-in it reloads the page (the platform then signs in again and returns to the same
+  address); signed-in or not-configured leave the page alone, so a dead API never causes a reload loop.
 - `/` redirects to `/natgas`; there is no home page. Left on disk but no longer linked from anywhere:
   `StreamViewer` (an empty shell), `/about`, `/trades` (router demo code), and `/admin`, which always redirects to
   `/forbidden` (`isAuthorized()` is hard-coded `false`). Decide whether to delete them.
@@ -216,9 +224,9 @@ scheme inside the grid. The reference is the 17 Sep photo of ICE's "Nat Gas TTF 
    stream does on reconnect. Fix: assign a fresh `{}` each time, and add a test that pushes twice.
 7. `README.md` is the untouched Vite template and says nothing about Atlas.
 8. **ICE-screen replica, gaps against the desk's photo** (2026-09-18):
-   - **B Qty and O Qty are blank, on the mock feed and on live ICE data.** Fields 30/31
-     (`LRT_TYPE_BIDSIZE`/`ASKSIZE`) are mapped but the live Level 1 feed does not send them (confirmed 2026-09-18);
-     they probably need ICE's market-depth entitlement — root notes, "ICE access". The columns stay, as on ICE.
+   - **B Qty and O Qty are blank on the mock feed** (its recording has no fields 30/31). On live ICE data CEAPI
+     derives 30/31 from the composite bid/ask items — root notes, "ICE access" — and the mapper already reads them.
+     A size of `0` renders as `0`, not blank; a display rule for that is not yet decided.
    - **On the mock feed only 6 rows have prices** (TTF Oct26–Mar27, at March 2026 prices); every other row is drawn
      but blank, and the NBP and spreads tabs are blank throughout: the recording has nothing else. On live ICE data
      the old 20-row screen filled completely (confirmed 2026-09-18, field 971 reading exactly `Winter26`, `Q4 26` …).

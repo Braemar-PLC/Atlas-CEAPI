@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchScreen } from "@atlas/external";
 import type { Screen } from "@atlas/data";
 import { acquireScreenStream } from "@/application/subscriptions/natgas-subscriptions-manager";
+import { reloadIfSignedOut } from "@/application/auth/reload-if-signed-out";
 import { NatGasComponent } from "./natgas.component";
 import { formatPricesAsOf, useNatGasViewModel } from "./natgas.view-model";
 
@@ -40,8 +41,13 @@ function useScreen(screenKey: string) {
           setError(undefined);
           setScreen(current => JSON.stringify(current) === JSON.stringify(next) ? current : next);
         })
-        .catch(e => {
-          if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        .catch(async e => {
+          // An expired sign-in fails here first (the API answers with a login page instead of the screen);
+          // the page reloads to sign in again rather than showing the fault.
+          if (cancelled || await reloadIfSignedOut()) {
+            return;
+          }
+          setError(e instanceof Error ? e.message : String(e));
         });
 
     load();

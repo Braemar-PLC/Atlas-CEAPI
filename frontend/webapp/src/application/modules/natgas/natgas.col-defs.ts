@@ -2,7 +2,8 @@ import type { ColDef } from "ag-grid-community";
 import type { NatGasFieldKey } from "@/application/registries/natgas-domain";
 
 /**
- * Columns follow the ICE screen: its header names, 3-decimal prices, right-aligned figures.
+ * Columns follow the ICE screen: its header names and 3-decimal prices. Figures and their headers are centred
+ * (the desk's choice, 23 Sep 2026); Strip is the one left-aligned column.
  * "bidBar" and "askBar" are not data: they are the thin red and green bars ICE draws beside the
  * bid side and the offer side. A view lists them in `fields` wherever the bar should sit.
  * Styling for the `ice-*` classes is in natgas.css.
@@ -26,8 +27,9 @@ export function buildNatGasColumnDefs(fields: NatGasFieldKey[], showSymbol = tru
   const num = (dp = 2) =>
     (p: any) => (p.value == null ? "" : Number(p.value).toFixed(dp));
 
-  const price: ColDef = { type: "rightAligned", valueFormatter: num(3) };
-  const quantity: ColDef = { type: "rightAligned", valueFormatter: num(0) };
+  const centred: ColDef = { headerClass: "ice-centred-header", cellClass: "ice-centred" };
+  const price: ColDef = { ...centred, valueFormatter: num(3) };
+  const quantity: ColDef = { ...centred, valueFormatter: num(0) };
 
   const bar = (colId: string, cellClass: string): ColDef => ({
     colId,
@@ -55,8 +57,8 @@ export function buildNatGasColumnDefs(fields: NatGasFieldKey[], showSymbol = tru
       initialFlex: 70,
       ...price,
       enableCellChangeFlash: true,
-      // Setting cellClass replaces the one "rightAligned" supplies, so it is repeated here.
-      cellClass: "ag-right-aligned-cell ice-last",
+      // Setting cellClass replaces the one `price` supplies, so it is repeated here.
+      cellClass: "ice-centred ice-last",
       cellClassRules: {
         "ice-tick-up": p => p.data?.tick === "up",
         "ice-tick-down": p => p.data?.tick === "down",

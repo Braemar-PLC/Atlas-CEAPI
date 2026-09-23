@@ -1,6 +1,7 @@
 import { makeSsePricingAdapter } from "@atlas/external";
 import { EventMessageTypes, stripsBySymbol, useNatGas } from "@atlas/data";
 import type { Screen } from "@atlas/data";
+import { reloadIfSignedOut } from "@/application/auth/reload-if-signed-out";
 
 // One shared connection per desk screen, counted: the first acquire() for a screen connects,
 // the last release() disconnects. Different screens have different rows, so each has its own stream.
@@ -35,7 +36,11 @@ export function acquireScreenStream(screen: Screen) {
             break;
         }
       },
-      err => console.error(`NatGas SSE error (${screen.key})`, err)
+      err => {
+        console.error(`NatGas SSE error (${screen.key})`, err);
+        // A stream that dies because the sign-in expired is brought back by reloading into sign-in.
+        void reloadIfSignedOut();
+      }
     );
 
     shared = { refCount: 0, connecting };
