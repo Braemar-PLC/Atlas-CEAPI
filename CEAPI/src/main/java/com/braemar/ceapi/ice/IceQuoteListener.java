@@ -1,5 +1,6 @@
 package com.braemar.ceapi.ice;
 
+import com.esignal.jstandard.beans.quote.FIELDFORMAT;
 import com.esignal.jstandard.beans.quote.Quote;
 import com.esignal.jstandard.beans.quote.Quote.FieldItem;
 import com.esignal.jstandard.event.QuoteEvent;
@@ -18,6 +19,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 /**
@@ -35,6 +37,12 @@ public class IceQuoteListener implements QuoteRequestListener, QuoteListener {
     private static final DateTimeFormatter UTC_FMT = DateTimeFormatter
             .ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
             .withZone(ZoneOffset.UTC);
+
+    // ICE sends bid and ask as one composite item (CIDFIELDDATA) carrying price and size together and does not
+    // publish the standalone size fields, so BIDSIZE (30) and ASKSIZE (31) are derived from the composite here.
+    private static final Map<Short, Short> SIZE_FIELD_FOR = Map.of(
+            (short) FieldItem.LRT_TYPE_BID, (short) FieldItem.LRT_TYPE_BIDSIZE,
+            (short) FieldItem.LRT_TYPE_ASK, (short) FieldItem.LRT_TYPE_ASKSIZE);
 
     public IceQuoteListener(Observable<QuoteReceivedEvent> quoteEventEmitter,
             Observable<StatusEvent> statusEventEmitter, Observable<SymbolEvent> symbolEventEmitter) {
@@ -92,14 +100,15 @@ public class IceQuoteListener implements QuoteRequestListener, QuoteListener {
         List<String> values = new ArrayList<>();
 
         for (FieldItem item : quote) {
-            if (quote.isFieldItemNull(item.getId()))
+            if (quote.isFieldItemNull(item.getId())) {
                 continue;
-            ids.add(item.getId());
-            values.add(safeFieldValue(item));
+            }
+            appendField(item, ids, values);
         }
 
-        if (ids.isEmpty())
+        if (ids.isEmpty()) {
             return;
+        }
 
         short[] fieldIds = new short[ids.size()];
         String[] fieldValues = new String[values.size()];
@@ -117,6 +126,31 @@ public class IceQuoteListener implements QuoteRequestListener, QuoteListener {
         QuoteReceivedEvent e = new QuoteReceivedEvent(symbol, fieldIds, fieldValues, messageType);
         this.quoteEventEmitter.raise(e);
 
+    }
+
+    private void appendField(FieldItem item, List<Short> ids, List<String> values) {
+        ids.add(item.getId());
+        values.add(safeFieldValue(item));
+
+        Short sizeId = SIZE_FIELD_FOR.get(item.getId());
+        if (sizeId == null || item.getFormat() != FIELDFORMAT.CIDFIELDDATA) {
+            return;
+        }
+        String size = safeCidSize(item);
+        if (size != null) {
+            ids.add(sizeId);
+            values.add(size);
+        }
+    }
+
+    // Same policy as safeFieldValue: one field ICE cannot serve must not cost the rest of the quote.
+    private String safeCidSize(FieldItem item) {
+        try {
+            return String.valueOf(item.getValueAsCidFieldData().getSize());
+        } catch (Exception e) {
+            log.warning("Could not read size of field id=" + item.getId() + ": " + e.getMessage());
+            return null;
+        }
     }
 
     private String safeFieldValue(FieldItem item) {

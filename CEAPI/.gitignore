@@ -9,3 +9,5 @@ build/
 !.vscode/extensions.json
 *.class
 hs_err_pid*
+# Raw recordings of the relay's output (prices only, no credentials) - kept out of git, copy one in deliberately
+captures/

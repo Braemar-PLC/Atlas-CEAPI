@@ -2,6 +2,7 @@ package com.braemar.ceapi.ice;
 
 import com.braemar.ceapi.utility.Observable;
 import com.braemar.ceapi.websocket.MessageType;
+import com.esignal.jstandard.beans.quote.CidFieldData;
 import com.esignal.jstandard.beans.quote.FIELDFORMAT;
 import com.esignal.jstandard.beans.quote.Quote;
 import com.esignal.jstandard.beans.quote.Quote.FieldItem;
@@ -220,6 +221,59 @@ class IceQuoteListenerTest {
         when(fieldItem.getValueAsInteger(false)).thenReturn(0);
         listener.onUpdate(quoteEvent);
         assertEquals("1970-01-01T00:00:00Z", received.get(0).fieldValues[0]);
+    }
+
+    // --- Composite bid/ask: CIDFIELDDATA carries price and size in one item ---
+
+    private CidFieldData stubCidField(short id, double price, double size) {
+        stubField(FIELDFORMAT.CIDFIELDDATA);
+        when(fieldItem.getId()).thenReturn(id);
+        CidFieldData cid = mock(CidFieldData.class);
+        when(cid.getValue()).thenReturn(price);
+        when(cid.getSize()).thenReturn(size);
+        when(fieldItem.getValueAsCidFieldData()).thenReturn(cid);
+        return cid;
+    }
+
+    @Test
+    void cidFieldData_bid_emitsPriceThenBidSize() {
+        stubCidField((short) FieldItem.LRT_TYPE_BID, 49.26, 5.0);
+        listener.onUpdate(quoteEvent);
+        assertArrayEquals(new short[] { 20, 30 }, received.get(0).fieldIds);
+        assertArrayEquals(new String[] { "49.26", "5.0" }, received.get(0).fieldValues);
+    }
+
+    @Test
+    void cidFieldData_ask_emitsPriceThenAskSize() {
+        stubCidField((short) FieldItem.LRT_TYPE_ASK, 49.745, 10.0);
+        listener.onUpdate(quoteEvent);
+        assertArrayEquals(new short[] { 21, 31 }, received.get(0).fieldIds);
+        assertArrayEquals(new String[] { "49.745", "10.0" }, received.get(0).fieldValues);
+    }
+
+    @Test
+    void cidFieldData_otherField_emitsPriceOnly() {
+        stubCidField((short) FieldItem.LRT_TYPE_LAST, 49.5, 7.0);
+        listener.onUpdate(quoteEvent);
+        assertArrayEquals(new short[] { 19 }, received.get(0).fieldIds);
+        assertArrayEquals(new String[] { "49.5" }, received.get(0).fieldValues);
+    }
+
+    @Test
+    void cidFieldData_zeroSize_isStillEmitted() {
+        stubCidField((short) FieldItem.LRT_TYPE_BID, 49.26, 0.0);
+        listener.onUpdate(quoteEvent);
+        assertArrayEquals(new short[] { 20, 30 }, received.get(0).fieldIds);
+        assertArrayEquals(new String[] { "49.26", "0.0" }, received.get(0).fieldValues);
+    }
+
+    @Test
+    void cidFieldData_unreadableSize_emitsPriceWithoutSize() {
+        CidFieldData cid = stubCidField((short) FieldItem.LRT_TYPE_BID, 49.26, 5.0);
+        when(cid.getSize()).thenThrow(new RuntimeException("ICE error"));
+        listener.onUpdate(quoteEvent);
+        assertArrayEquals(new short[] { 20 }, received.get(0).fieldIds);
+        assertArrayEquals(new String[] { "49.26" }, received.get(0).fieldValues);
     }
 
     // --- Error resilience ---
