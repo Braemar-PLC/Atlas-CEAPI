@@ -43,6 +43,9 @@ since a second instance would hold its own independent in-memory state and its o
 - Under the app registration's **Authentication > Implicit grant and hybrid flows**, **ID tokens** must be enabled.
   App Service Authentication requests `code id_token`; without it sign-in fails with "response_type 'id_token' is
   not enabled for the application" and the callback returns 401.
+- The app must sign its tokens with the tenant's standard keys. Do not configure SAML single sign-on (a SAML
+  signing certificate) or a claims-mapping policy on its Enterprise application: Entra then signs ID tokens with an
+  app-specific key that App Service Authentication does not trust, and the callback returns "400 Invalid ID Token".
 - App Service Plan: this deployment **does not create its own plan**. It attaches the `atlas-api` Web App to an
   existing Linux App Service Plan — `BraemarLens-Dev-ASP` (Basic B2) in resource group
   `BraemarLens-Development-RG` — because the subscription's UK South "Total VMs" quota is fully consumed and no
