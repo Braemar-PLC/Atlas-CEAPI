@@ -40,6 +40,9 @@ since a second instance would hold its own independent in-memory state and its o
 - The Entra app registration must include the App Service callback URI
   `https://<APPSERVICE_NAME>.azurewebsites.net/.auth/login/aad/callback` as a Web redirect URI (and the custom
   hostname callback too, if the app is opened through a custom domain).
+- Under the app registration's **Authentication > Implicit grant and hybrid flows**, **ID tokens** must be enabled.
+  App Service Authentication requests `code id_token`; without it sign-in fails with "response_type 'id_token' is
+  not enabled for the application" and the callback returns 401.
 - App Service Plan: this deployment **does not create its own plan**. It attaches the `atlas-api` Web App to an
   existing Linux App Service Plan — `BraemarLens-Dev-ASP` (Basic B2) in resource group
   `BraemarLens-Development-RG` — because the subscription's UK South "Total VMs" quota is fully consumed and no
