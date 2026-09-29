@@ -1,78 +1,122 @@
-/* The sign-in page. Every size but the 1-2px borders and outline is a number of picture pixels times --s: how much
-   the 1536x1024 background is enlarged to cover the window. The card is sized and placed in those units too (its
-   width also capped at the window width minus 32px), so it sits over the card painted into the picture at any
-   window size, and the whole composition scales together. */
+/* The sign-in page. Every size except hairline borders is a number of background-picture pixels times --s: how much
+   the 1536x1024 background is enlarged to cover the window. The card is sized and placed in the same units, so it
+   sits exactly over the card area of the picture at any window size and the whole composition scales together.
+   The card is frosted glass: the picture's own card shows through blurred, which gives the soft green glow. */
 .sign-in {
   --s: max(calc(100vw / 1536), calc(100vh / 1024));
-  --green: #2fcf75;
+  --green: #2ee27f;
+  --green-soft: rgba(46, 226, 127, 0.55);
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #060a08 url("/sign-in-background.jpg") center / cover no-repeat;
-  color: #fff;
-  font-family: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  background: #040806 url("/sign-in-background.jpg") center / cover no-repeat;
+  color: #f2f5f3;
+  font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* A soft vignette keeps the eye on the card, as in the reference. */
+.sign-in::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, transparent 38%, rgba(0, 0, 0, 0.45) 100%);
 }
 
 .sign-in__card {
+  position: relative;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  width: min(calc(536 * var(--s)), calc(100vw - 32px));
+  width: min(calc(538 * var(--s)), calc(100vw - 32px));
   min-height: calc(422 * var(--s));
-  padding: calc(64 * var(--s)) calc(46 * var(--s)) calc(52 * var(--s));
-  border: 1px solid rgba(150, 215, 180, 0.4);
-  border-radius: calc(14 * var(--s));
-  background: rgba(20, 40, 33, 0.84);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 0 calc(40 * var(--s)) rgba(0, 0, 0, 0.55);
-  transform: translateY(calc(-35 * var(--s)));
   margin: 0;
+  padding: calc(62 * var(--s)) calc(47 * var(--s)) calc(50 * var(--s));
+  border: 1px solid rgba(88, 224, 150, 0.42);
+  border-radius: calc(16 * var(--s));
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 45%, rgba(0, 0, 0, 0.08) 100%),
+    rgba(14, 30, 24, 0.34);
+  backdrop-filter: blur(calc(22 * var(--s))) saturate(1.35);
+  -webkit-backdrop-filter: blur(calc(22 * var(--s))) saturate(1.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 0 calc(28 * var(--s)) rgba(46, 226, 127, 0.1),
+    0 calc(24 * var(--s)) calc(60 * var(--s)) rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(calc(-35 * var(--s)));
+  animation: sign-in-rise 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes sign-in-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-20 * var(--s)));
+  }
 }
 
 .sign-in__logo {
-  width: calc(295 * var(--s));
+  display: block;
+  width: calc(292 * var(--s));
+  height: auto;
   align-self: center;
+  filter: drop-shadow(0 0 calc(10 * var(--s)) rgba(46, 226, 127, 0.25));
 }
 
+/* "ATLAS" sits under the wordmark (right of the ring), not under the whole logo. */
 .sign-in__product {
   align-self: center;
-  transform: translateX(calc(34 * var(--s)));
-  margin-top: calc(-20 * var(--s));
-  font-size: calc(26 * var(--s));
+  transform: translateX(calc(37 * var(--s)));
+  margin-top: calc(-14 * var(--s));
+  padding-left: 0.55em;
+  font-size: calc(22 * var(--s));
   font-weight: 600;
-  letter-spacing: 0.42em;
+  letter-spacing: 0.55em;
+  line-height: 1;
   color: var(--green);
+  text-shadow: 0 0 calc(12 * var(--s)) rgba(46, 226, 127, 0.35);
 }
 
 .sign-in__label {
-  margin-top: calc(58 * var(--s));
-  font-size: calc(16 * var(--s));
+  margin-top: calc(62 * var(--s));
+  font-size: calc(15 * var(--s));
   font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #eef3f0;
 }
 
 .sign-in__field {
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: calc(19 * var(--s));
-  height: calc(52 * var(--s));
-  margin-top: calc(12 * var(--s));
-  padding: 0 calc(20 * var(--s));
-  border: 1px solid rgba(150, 205, 180, 0.45);
-  border-radius: calc(8 * var(--s));
-  background: rgba(6, 14, 11, 0.55);
-  color: #d5ddd9;
+  gap: calc(16 * var(--s));
+  height: calc(51 * var(--s));
+  margin-top: calc(11 * var(--s));
+  padding: 0 calc(18 * var(--s));
+  border: 1px solid rgba(220, 235, 228, 0.28);
+  border-radius: calc(9 * var(--s));
+  background: rgba(4, 10, 8, 0.38);
+  color: #c9d3ce;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+.sign-in__field:hover {
+  border-color: rgba(220, 235, 228, 0.4);
 }
 .sign-in__field:focus-within {
-  border-color: rgba(47, 207, 117, 0.6);
+  border-color: var(--green-soft);
+  background: rgba(4, 10, 8, 0.5);
+  box-shadow: 0 0 0 calc(3 * var(--s)) rgba(46, 226, 127, 0.12);
 }
 
 .sign-in__icon {
   flex-shrink: 0;
-  width: calc(20 * var(--s));
-  height: calc(20 * var(--s));
+  width: calc(21 * var(--s));
+  height: calc(21 * var(--s));
 }
 
 .sign-in__input {
@@ -82,12 +126,12 @@
   outline: 0;
   padding: 0;
   background: transparent;
-  color: #eef3f0;
+  color: #f2f5f3;
   font: inherit;
   font-size: calc(15 * var(--s));
 }
 .sign-in__input::placeholder {
-  color: #8a948f;
+  color: #8f9a95;
 }
 
 .sign-in__go {
@@ -100,17 +144,21 @@
   height: calc(52 * var(--s));
   margin-top: calc(18 * var(--s));
   padding: 0;
-  border: 2px solid var(--green);
+  border: calc(1.5 * var(--s)) solid var(--green);
   border-radius: 50%;
-  background: transparent;
+  background: rgba(46, 226, 127, 0.06);
   color: var(--green);
   cursor: pointer;
+  box-shadow: 0 0 calc(14 * var(--s)) rgba(46, 226, 127, 0.22);
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 .sign-in__go:hover {
-  border-color: var(--green);
-  background: rgba(47, 207, 117, 0.14);
+  background: rgba(46, 226, 127, 0.16);
+  box-shadow: 0 0 calc(22 * var(--s)) rgba(46, 226, 127, 0.4);
 }
-.sign-in__go:focus,
+.sign-in__go:active {
+  transform: scale(0.96);
+}
 .sign-in__go:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 3px;
@@ -119,4 +167,10 @@
 .sign-in__arrow {
   width: calc(22 * var(--s));
   height: calc(22 * var(--s));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sign-in__card {
+    animation: none;
+  }
 }
