@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { signInHref } from "@/application/auth/sign-in-link";
 import "./sign-in-page.css";
 
@@ -24,6 +24,13 @@ export function SignInPage({ returnTo, go = href => window.location.assign(href)
 
   return (
     <div className="sign-in">
+      <div className="sign-in__map" aria-hidden="true">
+        {OCEANS.map(({ name, x, y }) => (
+          <span key={name} className="sign-in__ocean" style={{ "--x": x, "--y": y } as CSSProperties}>
+            {name}
+          </span>
+        ))}
+      </div>
       <form className="sign-in__card" onSubmit={submit}>
         <img className="sign-in__logo" src="/braemar-logo-light.png" alt="Braemar" />
         <div className="sign-in__product">ATLAS</div>
@@ -48,6 +55,16 @@ export function SignInPage({ returnTo, go = href => window.location.assign(href)
     </div>
   );
 }
+
+/** The ocean labels, drawn as text over the map; x and y are the centre in the 1152x768 design's pixels. */
+const OCEANS = [
+  { name: "ARCTIC OCEAN", x: 594, y: 70.5 },
+  { name: "ATLANTIC\nOCEAN", x: 413.5, y: 306.5 },
+  { name: "PACIFIC\nOCEAN", x: 68, y: 406 },
+  { name: "PACIFIC\nOCEAN", x: 1100.5, y: 335 },
+  { name: "INDIAN\nOCEAN", x: 819, y: 464.5 },
+  { name: "SOUTHERN OCEAN", x: 679, y: 624.5 },
+];
 
 /** The person outline at the left of the username box. */
 function PersonIcon() {
