@@ -42,8 +42,9 @@
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 45%, rgba(0, 0, 0, 0.08) 100%),
     rgba(14, 30, 24, 0.34);
-  backdrop-filter: blur(calc(22 * var(--s))) saturate(1.35);
+  /* Unprefixed last: the build's minifier keeps only the last of the pair. */
   -webkit-backdrop-filter: blur(calc(22 * var(--s))) saturate(1.35);
+  backdrop-filter: blur(calc(22 * var(--s))) saturate(1.35);
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.25),
     0 0 calc(28 * var(--s)) rgba(46, 226, 127, 0.1),
