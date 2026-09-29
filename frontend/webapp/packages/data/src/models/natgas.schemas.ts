@@ -9,14 +9,19 @@ export const CommoditySchema = Type.Union([
   Type.Literal("GAS"),
   Type.Literal("POWER"),
   Type.Literal("OIL"),
+  Type.Literal("COAL"),
 ]);
 
+// The hubs, spelt as ICE spells them (field 951 and the catalogue): the gas hubs and, since 2026-09-24, the two
+// coal hubs - ARA (Rotterdam, the API2 contract) and Newcastle.
 export const InstrumentSchema = Type.Union([
   Type.Literal("NBP"),
   Type.Literal("TTF"),
   Type.Literal("PSV"),
   Type.Literal("ZTP"),
   Type.Literal("CEGH"),
+  Type.Literal("ARA"),
+  Type.Literal("Newcastle"),
 ]);
 
 export const TickSchema = Type.Union([
@@ -24,6 +29,7 @@ export const TickSchema = Type.Union([
   Type.Literal("down"),
 ]);
 
+// One quote shape serves every hub, coal included, whatever the name says.
 export const NatGasQuoteSchema = Type.Object({
   exchange: ExchangeSchema,
   commodity: CommoditySchema,
@@ -44,6 +50,15 @@ export const NatGasQuoteSchema = Type.Object({
   settle: Type.Optional(Type.Number()),
   blockVolume: Type.Optional(Type.Number()),
 
+  // Open interest and the volume-weighted average price: "OI" and "WAP" on WebICE's coal screen.
+  openInterest: Type.Optional(Type.Number()),
+  wap: Type.Optional(Type.Number()),
+
+  // What the spread markets make available at the implied bid and offer (ICE fields 581 and 582). The implied
+  // prices themselves are worked out in the browser from the spread rows - ICE sends no field for them.
+  impliedBidSize: Type.Optional(Type.Number()),
+  impliedAskSize: Type.Optional(Type.Number()),
+
   // How many minutes behind the exchange this quote is, as the source reports it (0 = real-time).
   delayMinutes: Type.Optional(Type.Number()),
 
@@ -63,3 +78,17 @@ export type Exchange = Static<typeof ExchangeSchema>;
 export type Commodity = Static<typeof CommoditySchema>;
 export type Instrument = Static<typeof InstrumentSchema>;
 export type Tick = Static<typeof TickSchema>;
+
+// Which commodity each hub trades. Exhaustive on purpose: a hub added to InstrumentSchema without a line here
+// fails the type-check.
+export const CommodityByHub: Record<Instrument, Commodity> = {
+  NBP: "GAS",
+  TTF: "GAS",
+  PSV: "GAS",
+  ZTP: "GAS",
+  CEGH: "GAS",
+  ARA: "COAL",
+  Newcastle: "COAL",
+};
+
+export const commodityOf = (hub: Instrument): Commodity => CommodityByHub[hub];

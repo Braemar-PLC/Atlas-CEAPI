@@ -8,8 +8,9 @@ export type SignIn =
 
 /**
  * Who is signed in, from the platform's own endpoint (GET /.auth/me, Azure App Service Authentication).
- * "notConfigured" means nothing answered as that platform would: on the laptop there is no sign-in at all and the
- * dev server returns the page itself for that address. The app then behaves as if sign-in did not exist.
+ * "notConfigured" means nothing answered as that platform would: the platform's sign-in is not switched on and the
+ * address returns the page itself (a build served without the dev server's stand-in, or Azure with Easy Auth off).
+ * The app then behaves as if sign-in did not exist.
  * `fetchFn` is only there so a test can stand in for the network.
  */
 export async function fetchSignIn(fetchFn: typeof fetch = fetch): Promise<SignIn> {

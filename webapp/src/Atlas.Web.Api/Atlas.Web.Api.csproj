@@ -14,6 +14,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Atlas.Web.Core\Atlas.Web.Core.csproj" />
+    <ProjectReference Include="..\Atlas.Web.Data\Atlas.Web.Data.csproj" />
     <ProjectReference Include="..\Atlas.Web.Ice\Atlas.Web.Ice.csproj" />
   </ItemGroup>
 </Project>

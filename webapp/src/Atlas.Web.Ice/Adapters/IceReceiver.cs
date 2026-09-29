@@ -4,7 +4,6 @@ using Atlas.Web.Ice.Configuration;
 using Atlas.Web.Ice.Domain.Services;
 using Atlas.Web.Ice.WebSocket;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Atlas.Web.Ice.Adapters;
@@ -25,20 +24,17 @@ public sealed class IceReceiver : IHostedService
     private readonly IWebSocketClientFactory _wsFactory;
     private readonly IIceMessageProcessor _processor;
     private readonly IceOptions _options;
-    private readonly ILogger<IceReceiver> _logger;
     private IWebSocketClient? _ws;
     private CancellationTokenSource? _cts;
 
     public IceReceiver(
         IWebSocketClientFactory wsFactory,
         IIceMessageProcessor processor,
-        IOptions<IceOptions> options,
-        ILogger<IceReceiver> logger)
+        IOptions<IceOptions> options)
     {
         _wsFactory = wsFactory;
         _processor = processor;
         _options = options.Value;
-        _logger = logger;
     }
 
     public Task StartAsync(CancellationToken ct)
@@ -56,34 +52,26 @@ public sealed class IceReceiver : IHostedService
             await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Stopping", ct);
         }
     }
-
-    private async Task RunAsync(CancellationToken ct)
+        private async Task RunAsync(CancellationToken ct)
     {
         var attempt = 0;
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                _logger.LogInformation("Connecting to CEAPI WebSocket at {Uri}", _options.WebSocketUri);
                 _ws = _wsFactory.Create();
                 await _ws.ConnectAsync(_options.WebSocketUri, ct);
-                _logger.LogInformation("Connected to CEAPI WebSocket at {Uri}", _options.WebSocketUri);
                 attempt = 0;
                 await ReceiveLoopAsync(_ws, ct);
-                _logger.LogWarning("CEAPI WebSocket connection at {Uri} closed; reconnecting", _options.WebSocketUri);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 return;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
+                // TODO: log connection failure
                 var delay = BackoffSequence[Math.Min(attempt, BackoffSequence.Length - 1)];
-                _logger.LogWarning(
-                    ex,
-                    "Failed to connect to CEAPI WebSocket at {Uri}; retrying in {Delay}",
-                    _options.WebSocketUri,
-                    delay);
                 attempt++;
                 try { await Task.Delay(delay, ct); }
                 catch (OperationCanceledException) { return; }

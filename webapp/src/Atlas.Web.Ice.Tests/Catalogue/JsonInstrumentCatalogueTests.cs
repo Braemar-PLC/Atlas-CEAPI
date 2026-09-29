@@ -50,7 +50,7 @@ public class JsonInstrumentCatalogueTests
     [Theory]
     [InlineData("TTF")]
     [InlineData("NBP")]
-    public void LoadEmbedded_HasEveryKindOfStripForEachHub(string hub)
+    public void LoadEmbedded_HasEveryKindOfStripForEachGasHub(string hub)
     {
         foreach (var kind in Enum.GetValues<StripKind>())
         {
@@ -58,15 +58,39 @@ public class JsonInstrumentCatalogueTests
         }
     }
 
-    [Fact]
-    public void LoadEmbedded_EveryStripExpiresBeforeItsDeliveryStarts()
+    [Theory]
+    [InlineData("ARA")]
+    [InlineData("Newcastle")]
+    public void LoadEmbedded_HasMonthsQuartersAndCalsForEachCoalHub(string hub)
     {
-        Embedded.Outrights.Should().OnlyContain(o => o.Expiry < o.Start);
+        foreach (var kind in new[] { StripKind.Month, StripKind.Quarter, StripKind.Cal })
+        {
+            Embedded.Outrights.Should().Contain(o => o.Hub == hub && o.Kind == kind);
+        }
     }
 
     [Theory]
     [InlineData("TTF")]
     [InlineData("NBP")]
+    public void LoadEmbedded_EveryGasStripExpiresBeforeItsDeliveryStarts(string hub)
+    {
+        Embedded.Outrights.Where(o => o.Hub == hub).Should().OnlyContain(o => o.Expiry < o.Start);
+    }
+
+    [Theory]
+    [InlineData("ARA")]
+    [InlineData("Newcastle")]
+    public void LoadEmbedded_EveryCoalStripExpiresInsideItsFirstDeliveryMonth_SoTheFrontMonthIsTheCurrentOne(string hub)
+    {
+        Embedded.Outrights.Where(o => o.Hub == hub)
+            .Should().OnlyContain(o => o.Start <= o.Expiry && o.Expiry < o.Start.AddMonths(1));
+    }
+
+    [Theory]
+    [InlineData("TTF")]
+    [InlineData("NBP")]
+    [InlineData("ARA")]
+    [InlineData("Newcastle")]
     public void LoadEmbedded_MonthsRunWithoutGaps_SoCountingStripsFromTheFrontMonthIsSafe(string hub)
     {
         var months = Embedded.Outrights
@@ -74,6 +98,7 @@ public class JsonInstrumentCatalogueTests
             .OrderBy(o => o.Start)
             .ToList();
 
+        months.Should().NotBeEmpty();
         for (var i = 1; i < months.Count; i++)
         {
             months[i].Start.Should().Be(months[i - 1].Start.AddMonths(1), "{0} should follow {1}", months[i].Name, months[i - 1].Name);

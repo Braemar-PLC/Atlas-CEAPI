@@ -1,9 +1,11 @@
 namespace Atlas.Web.Core.Domain.Models;
 
 /// <summary>
-/// How many strips each desk screen shows. These are the desk's preferences, so they live in configuration
+/// How many strips each desk screen shows. These are the desks' preferences, so they live in configuration
 /// (the "Screens" section of appsettings.json) - changing a count is an edit there, not a code change.
-/// Agreed with the gas desk (Harrison Lee) on 2026-09-21.
+/// <see cref="Flat"/> and <see cref="Spreads"/> are the defaults, agreed with the gas desk (Harrison Lee) on
+/// 2026-09-21. A hub that wants something else has its own entry in <see cref="Hubs"/> (the coal hubs, agreed
+/// with Sean Hays on 2026-09-24). Ask through <see cref="FlatFor"/> and <see cref="SpreadsFor"/>.
 ///
 /// The lists below start empty on purpose: the configuration binder ADDS to a list that already has items,
 /// so defaults written here would be doubled up by the values in appsettings.json.
@@ -12,10 +14,10 @@ public sealed class ScreenRules
 {
     public const string Section = "Screens";
 
-    /// <summary>Flat-price rows, for every hub.</summary>
+    /// <summary>Flat-price rows, for every hub without rules of its own.</summary>
     public FlatRule Flat { get; set; } = new();
 
-    /// <summary>The regular spread rows, for every hub.</summary>
+    /// <summary>The regular spread rows, for every hub without rules of its own.</summary>
     public SpreadRule Spreads { get; set; } = new();
 
     /// <summary>
@@ -24,6 +26,26 @@ public sealed class ScreenRules
     /// An entry drops off by itself once its near leg has expired.
     /// </summary>
     public Dictionary<string, List<string>> ExtraSpreads { get; set; } = new();
+
+    /// <summary>
+    /// Hubs whose counts or spreads differ from the defaults, by hub name ("ARA", "Newcastle"). A part a hub
+    /// leaves out falls back to the default; a part it gives replaces the default whole, so a kind missing from
+    /// a hub's own spread rules gets no spread rows at all.
+    /// </summary>
+    public Dictionary<string, HubRules> Hubs { get; set; } = new();
+
+    public FlatRule FlatFor(string hub) =>
+        Hubs.TryGetValue(hub, out var own) && own.Flat is not null ? own.Flat : Flat;
+
+    public SpreadRule SpreadsFor(string hub) =>
+        Hubs.TryGetValue(hub, out var own) && own.Spreads is not null ? own.Spreads : Spreads;
+}
+
+/// <summary>A hub's own rules. Either part may be left out to keep the default.</summary>
+public sealed class HubRules
+{
+    public FlatRule? Flat { get; set; }
+    public SpreadRule? Spreads { get; set; }
 }
 
 /// <summary>How many consecutive strips of each kind to show, counting from the front month.</summary>

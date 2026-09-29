@@ -58,30 +58,28 @@ class WebSocketServerIntegrationTest {
 
     // --- Command receipt (client → server) ---
 
-@Test
-void commandEvents_receivesCommandSentByClient() throws Exception {
-    BlockingQueue<String> commands = new LinkedBlockingQueue<>();
-    Observable<String> commandEvents = new Observable<>();
-    Observable<ClientConnectedEvent> connectEvents = new Observable<>();
-    commandEvents.subscribe(commands::add);
+    @Test
+    void commandEvents_receivesCommandSentByClient() throws Exception {
+        BlockingQueue<String> commands = new LinkedBlockingQueue<>();
+        Observable<String> commandEvents = new Observable<>();
+        Observable<ClientConnectedEvent> connectEvents = new Observable<>();
+        Observable<ClientDisconnectedEvent> disconnectEvents = new Observable<>();
+        commandEvents.subscribe(commands::add);
 
-    server.stop();
-    server = makeServer(TEST_PORT + 1, commandEvents, connectEvents, new Observable<>());
-    serverConnectEvents = connectEvents;
-    server.start();
-    Thread.sleep(100);
+        server.stop();
+        server = makeServer(TEST_PORT + 1, commandEvents, connectEvents, disconnectEvents);
+        serverConnectEvents = connectEvents;
+        serverDisconnectEvents = disconnectEvents;
+        server.start();
+        Thread.sleep(100);
 
-    CountDownLatch serverReady = new CountDownLatch(1);
-    connectEvents.subscribe(e -> serverReady.countDown());
+        TestClient client = new TestClient(TEST_PORT + 1);
+        connectAndAwaitServerOpen(client);
 
-    TestClient client = new TestClient(TEST_PORT + 1);
-    client.connectBlocking();
-    assertTrue(serverReady.await(2, TimeUnit.SECONDS), "Server onOpen never fired");
-
-    client.send("resync");
-    assertEquals("resync", commands.poll(2, TimeUnit.SECONDS));
-    client.closeBlocking();
-}
+        client.send("resync");
+        assertEquals("resync", commands.poll(2, TimeUnit.SECONDS));
+        client.closeBlocking();
+    }
 
     // --- Connect event ---
 
@@ -162,14 +160,7 @@ void commandEvents_receivesCommandSentByClient() throws Exception {
     // --- Helpers ---
 
     private void connectAndAwaitServerOpen(TestClient client) throws Exception {
-        connectAndAwaitServerOpen(client, TEST_PORT);
-    }
-
-    private void connectAndAwaitServerOpen(TestClient client, int port) throws Exception {
-        CountDownLatch serverReady = new CountDownLatch(1);
-        serverConnectEvents.subscribe(e -> serverReady.countDown());
-        client.connectBlocking();
-        assertTrue(serverReady.await(2, TimeUnit.SECONDS), "Server onOpen never fired");
+        assertTrue(client.connectBlocking(), "WebSocket client failed to connect");
     }
 
     private static WebSocketServer makeServer(int port,

@@ -9,7 +9,7 @@ const harness = (signIn: SignIn) => {
 };
 
 describe("reloadIfSignedOut", () => {
-  it("reloads the page when the sign-in has expired, so the platform can sign the user in again", async () => {
+  it("reloads the page when the sign-in has expired, so the sign-in page can be shown", async () => {
     const h = harness({ state: "signedOut" });
 
     expect(await h.run()).toBe(true);

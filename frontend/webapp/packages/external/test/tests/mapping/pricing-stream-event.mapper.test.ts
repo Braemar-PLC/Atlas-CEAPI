@@ -148,3 +148,28 @@ describe("mapPricingStreamEvent with the screen's symbols", () => {
     expect(mapPricingStreamEvent(makeEvent({}, 0, "GWM 26V-ICE"), strips)).toBeUndefined();
   });
 });
+
+describe("mapPricingStreamEvent for coal", () => {
+  const strips = new Map([["ATW 26V-ICE", { hub: "ARA" as const, label: "Oct26" }]]);
+
+  it("files a Rotterdam contract under the ARA hub as coal, with open interest, WAP and the implied sizes", () => {
+    const msg = mapPricingStreamEvent(makeEvent({
+      "20": "94.55", "21": "96.95", "109": "60954.0", "267": "95.2", "581": "5", "582": "10",
+    }, 0, "ATW 26V-ICE"), strips);
+
+    expect(msg?.data).toEqual({
+      exchange: "ICE", commodity: "COAL", instrument: "ARA", tenor: "Oct26",
+      bid: 94.55, ask: 96.95, openInterest: 60954, wap: 95.2, impliedBidSize: 5, impliedAskSize: 10,
+    });
+  });
+
+  it("maps Newcastle from ICE's own hub field", () => {
+    const msg = mapPricingStreamEvent(makeEvent({ "19": "112.5", "951": "Newcastle", "971": "Nov26" }, 0, "NCF 26X-ICE"));
+
+    expect(msg?.data).toMatchObject({ instrument: "Newcastle", commodity: "COAL", tenor: "Nov26", last: 112.5 });
+  });
+
+  it("still calls a gas hub gas", () => {
+    expect(mapPricingStreamEvent(makeEvent(ttfApr26))?.data.commodity).toBe("GAS");
+  });
+});

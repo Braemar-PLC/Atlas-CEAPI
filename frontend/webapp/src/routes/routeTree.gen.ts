@@ -13,10 +13,16 @@ import { Route as TtfTimeSpreadRouteImport } from './ttf-time-spread'
 import { Route as NbpRouteImport } from './nbp'
 import { Route as NatgasRouteImport } from './natgas'
 import { Route as ForbiddenRouteImport } from './forbidden'
+import { Route as DesksRouteImport } from './desks'
 import { Route as AdminRouteImport } from './admin'
 import { Route as AboutRouteImport } from './about'
 import { Route as TradesRouteRouteImport } from './trades/route'
 import { Route as IndexRouteImport } from './index'
+import { Route as DesksIndexRouteImport } from './desks.index'
+import { Route as DesksKeyRouteImport } from './desks.$key'
+import { Route as CoalSpreadsRouteImport } from './coal.spreads'
+import { Route as CoalNewcastleRouteImport } from './coal.newcastle'
+import { Route as CoalApi2RouteImport } from './coal.api2'
 import { Route as TradesTradeIdRouteRouteImport } from './trades/$tradeId/route'
 
 const TtfTimeSpreadRoute = TtfTimeSpreadRouteImport.update({
@@ -39,6 +45,11 @@ const ForbiddenRoute = ForbiddenRouteImport.update({
   path: '/forbidden',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DesksRoute = DesksRouteImport.update({
+  id: '/desks',
+  path: '/desks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -59,6 +70,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DesksIndexRoute = DesksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DesksRoute,
+} as any)
+const DesksKeyRoute = DesksKeyRouteImport.update({
+  id: '/$key',
+  path: '/$key',
+  getParentRoute: () => DesksRoute,
+} as any)
+const CoalSpreadsRoute = CoalSpreadsRouteImport.update({
+  id: '/coal/spreads',
+  path: '/coal/spreads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoalNewcastleRoute = CoalNewcastleRouteImport.update({
+  id: '/coal/newcastle',
+  path: '/coal/newcastle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoalApi2Route = CoalApi2RouteImport.update({
+  id: '/coal/api2',
+  path: '/coal/api2',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TradesTradeIdRouteRoute = TradesTradeIdRouteRouteImport.update({
   id: '/$tradeId',
   path: '/$tradeId',
@@ -70,11 +106,17 @@ export interface FileRoutesByFullPath {
   '/trades': typeof TradesRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/desks': typeof DesksRouteWithChildren
   '/forbidden': typeof ForbiddenRoute
   '/natgas': typeof NatgasRoute
   '/nbp': typeof NbpRoute
   '/ttf-time-spread': typeof TtfTimeSpreadRoute
   '/trades/$tradeId': typeof TradesTradeIdRouteRoute
+  '/coal/api2': typeof CoalApi2Route
+  '/coal/newcastle': typeof CoalNewcastleRoute
+  '/coal/spreads': typeof CoalSpreadsRoute
+  '/desks/$key': typeof DesksKeyRoute
+  '/desks/': typeof DesksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +128,11 @@ export interface FileRoutesByTo {
   '/nbp': typeof NbpRoute
   '/ttf-time-spread': typeof TtfTimeSpreadRoute
   '/trades/$tradeId': typeof TradesTradeIdRouteRoute
+  '/coal/api2': typeof CoalApi2Route
+  '/coal/newcastle': typeof CoalNewcastleRoute
+  '/coal/spreads': typeof CoalSpreadsRoute
+  '/desks/$key': typeof DesksKeyRoute
+  '/desks': typeof DesksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -93,11 +140,17 @@ export interface FileRoutesById {
   '/trades': typeof TradesRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/admin': typeof AdminRoute
+  '/desks': typeof DesksRouteWithChildren
   '/forbidden': typeof ForbiddenRoute
   '/natgas': typeof NatgasRoute
   '/nbp': typeof NbpRoute
   '/ttf-time-spread': typeof TtfTimeSpreadRoute
   '/trades/$tradeId': typeof TradesTradeIdRouteRoute
+  '/coal/api2': typeof CoalApi2Route
+  '/coal/newcastle': typeof CoalNewcastleRoute
+  '/coal/spreads': typeof CoalSpreadsRoute
+  '/desks/$key': typeof DesksKeyRoute
+  '/desks/': typeof DesksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -106,11 +159,17 @@ export interface FileRouteTypes {
     | '/trades'
     | '/about'
     | '/admin'
+    | '/desks'
     | '/forbidden'
     | '/natgas'
     | '/nbp'
     | '/ttf-time-spread'
     | '/trades/$tradeId'
+    | '/coal/api2'
+    | '/coal/newcastle'
+    | '/coal/spreads'
+    | '/desks/$key'
+    | '/desks/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,17 +181,28 @@ export interface FileRouteTypes {
     | '/nbp'
     | '/ttf-time-spread'
     | '/trades/$tradeId'
+    | '/coal/api2'
+    | '/coal/newcastle'
+    | '/coal/spreads'
+    | '/desks/$key'
+    | '/desks'
   id:
     | '__root__'
     | '/'
     | '/trades'
     | '/about'
     | '/admin'
+    | '/desks'
     | '/forbidden'
     | '/natgas'
     | '/nbp'
     | '/ttf-time-spread'
     | '/trades/$tradeId'
+    | '/coal/api2'
+    | '/coal/newcastle'
+    | '/coal/spreads'
+    | '/desks/$key'
+    | '/desks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -140,10 +210,14 @@ export interface RootRouteChildren {
   TradesRouteRoute: typeof TradesRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRoute
+  DesksRoute: typeof DesksRouteWithChildren
   ForbiddenRoute: typeof ForbiddenRoute
   NatgasRoute: typeof NatgasRoute
   NbpRoute: typeof NbpRoute
   TtfTimeSpreadRoute: typeof TtfTimeSpreadRoute
+  CoalApi2Route: typeof CoalApi2Route
+  CoalNewcastleRoute: typeof CoalNewcastleRoute
+  CoalSpreadsRoute: typeof CoalSpreadsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForbiddenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/desks': {
+      id: '/desks'
+      path: '/desks'
+      fullPath: '/desks'
+      preLoaderRoute: typeof DesksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -204,6 +285,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/desks/': {
+      id: '/desks/'
+      path: '/'
+      fullPath: '/desks/'
+      preLoaderRoute: typeof DesksIndexRouteImport
+      parentRoute: typeof DesksRoute
+    }
+    '/desks/$key': {
+      id: '/desks/$key'
+      path: '/$key'
+      fullPath: '/desks/$key'
+      preLoaderRoute: typeof DesksKeyRouteImport
+      parentRoute: typeof DesksRoute
+    }
+    '/coal/spreads': {
+      id: '/coal/spreads'
+      path: '/coal/spreads'
+      fullPath: '/coal/spreads'
+      preLoaderRoute: typeof CoalSpreadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coal/newcastle': {
+      id: '/coal/newcastle'
+      path: '/coal/newcastle'
+      fullPath: '/coal/newcastle'
+      preLoaderRoute: typeof CoalNewcastleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coal/api2': {
+      id: '/coal/api2'
+      path: '/coal/api2'
+      fullPath: '/coal/api2'
+      preLoaderRoute: typeof CoalApi2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trades/$tradeId': {
       id: '/trades/$tradeId'
       path: '/$tradeId'
@@ -226,15 +342,31 @@ const TradesRouteRouteWithChildren = TradesRouteRoute._addFileChildren(
   TradesRouteRouteChildren,
 )
 
+interface DesksRouteChildren {
+  DesksKeyRoute: typeof DesksKeyRoute
+  DesksIndexRoute: typeof DesksIndexRoute
+}
+
+const DesksRouteChildren: DesksRouteChildren = {
+  DesksKeyRoute: DesksKeyRoute,
+  DesksIndexRoute: DesksIndexRoute,
+}
+
+const DesksRouteWithChildren = DesksRoute._addFileChildren(DesksRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   TradesRouteRoute: TradesRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRoute,
+  DesksRoute: DesksRouteWithChildren,
   ForbiddenRoute: ForbiddenRoute,
   NatgasRoute: NatgasRoute,
   NbpRoute: NbpRoute,
   TtfTimeSpreadRoute: TtfTimeSpreadRoute,
+  CoalApi2Route: CoalApi2Route,
+  CoalNewcastleRoute: CoalNewcastleRoute,
+  CoalSpreadsRoute: CoalSpreadsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

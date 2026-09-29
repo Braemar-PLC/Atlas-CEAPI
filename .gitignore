@@ -541,3 +541,13 @@ replay_pid*
 *.zip
 
 *._yml
+
+/CEAPI/lib
+/CEAPI/run-error-summary.txt
+/CEAPI/run-error.txt
+
+# The API's local SQLite database (Database:Path in appsettings.json)
+webapp/src/Atlas.Web.Api/App_Data/
+
+# ICE's licensed reference files and libraries (FTPCSD_*.csv.bz2, the Java SDK); tools/ice-catalogue reads the CSVs from here
+/ICE SDK/

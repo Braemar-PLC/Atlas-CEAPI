@@ -25,6 +25,9 @@ jobs:
       APPSERVICE_PLAN: ${{ secrets.APPSERVICE_PLAN }}
       APPSERVICE_PLAN_RESOURCE_GROUP: ${{ secrets.APPSERVICE_PLAN_RESOURCE_GROUP }}
       CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+      ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID }}
+      ENTRA_CLIENT_ID: ${{ secrets.ENTRA_CLIENT_ID }}
+      ENTRA_ID_SECRET: ${{ secrets.ENTRA_ID_SECRET }}
 
     steps:
       - name: Checkout repository
@@ -39,6 +42,13 @@ jobs:
         id: ceapi
         shell: bash
         run: |
+          for name in ENTRA_TENANT_ID ENTRA_CLIENT_ID ENTRA_ID_SECRET; do
+            if [ -z "${!name}" ]; then
+              echo "Required GitHub Actions secret is not configured: $name" >&2
+              exit 1
+            fi
+          done
+
           fqdn=$(az container show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CEAPI_CONTAINER_GROUP" \
@@ -101,7 +111,10 @@ jobs:
               appServiceName="$APPSERVICE_NAME" \
               appServicePlanName="$APPSERVICE_PLAN" \
               appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
-              iceEndpoint="${{ steps.ceapi.outputs.fqdn }}"
+              iceEndpoint="${{ steps.ceapi.outputs.fqdn }}" \
+              entraTenantId="$ENTRA_TENANT_ID" \
+              entraClientId="$ENTRA_CLIENT_ID" \
+              entraIdSecret="$ENTRA_ID_SECRET"
 
       - name: Deploy App Service infrastructure
         shell: bash
@@ -115,7 +128,10 @@ jobs:
               appServiceName="$APPSERVICE_NAME" \
               appServicePlanName="$APPSERVICE_PLAN" \
               appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
-              iceEndpoint="${{ steps.ceapi.outputs.fqdn }}"
+              iceEndpoint="${{ steps.ceapi.outputs.fqdn }}" \
+              entraTenantId="$ENTRA_TENANT_ID" \
+              entraClientId="$ENTRA_CLIENT_ID" \
+              entraIdSecret="$ENTRA_ID_SECRET"
 
       - name: Deploy app package
         shell: bash

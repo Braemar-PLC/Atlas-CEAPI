@@ -36,7 +36,7 @@ public class ScreensControllerTests
         var writer = new Mock<ISseWriter>();
         writer.Setup(w => w.StreamAsync(
                 It.IsAny<HttpResponse>(),
-                It.IsAny<IAsyncEnumerable<StreamEvent<PricingStateDto>>>(),
+                It.IsAny<IObservable<StreamEvent<PricingStateDto>>>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         var factory = new Mock<ISseWriterFactory>();
@@ -47,10 +47,17 @@ public class ScreensControllerTests
     private static ScreensController Controller(
         Mock<IScreenProvider>? screens = null,
         Mock<IPricingStore>? store = null,
-        Mock<ISseWriterFactory>? sse = null)
+        Mock<ISseWriterFactory>? sse = null,
+        CurrentUser? user = null,
+        Mock<IDeskService>? desks = null)
     {
+        user ??= new CurrentUser("admin@braemar.com", "Atlas Admin", true);
+        var currentUser = new Mock<ICurrentUser>();
+        currentUser.Setup(service => service.Get()).Returns(user);
         var controller = new ScreensController(
             (screens ?? Screens()).Object,
+            (desks ?? new Mock<IDeskService>()).Object,
+            currentUser.Object,
             (store ?? new Mock<IPricingStore>()).Object,
             (sse ?? WriterFactory()).Object,
             new Mock<IStreamEventFactory>().Object);
@@ -59,18 +66,18 @@ public class ScreensControllerTests
     }
 
     [Fact]
-    public void Get_KnownScreen_ReturnsItsRowsInOrder()
+    public async Task Get_KnownScreen_ReturnsItsRowsInOrder()
     {
-        var result = Controller().Get("ttf-flat");
+        var result = await Controller().Get("ttf-flat", CancellationToken.None);
 
         result.Value!.Title.Should().Be("Nat Gas TTF Flat Price");
         result.Value.Rows.Select(r => r.Label).Should().Equal("Oct26", "Oct26/Q1 27");
     }
 
     [Fact]
-    public void Get_QuotedRow_CarriesItsSymbolAndTheWordQuoted()
+    public async Task Get_QuotedRow_CarriesItsSymbolAndTheWordQuoted()
     {
-        var row = Controller().Get("ttf-flat").Value!.Rows[0];
+        var row = (await Controller().Get("ttf-flat", CancellationToken.None)).Value!.Rows[0];
 
         row.Source.Should().Be("quoted");
         row.Symbol.Should().Be("TFM 26V-ICN");
@@ -78,9 +85,9 @@ public class ScreensControllerTests
     }
 
     [Fact]
-    public void Get_ComputedRow_CarriesBothLegsAndNoSymbol()
+    public async Task Get_ComputedRow_CarriesBothLegsAndNoSymbol()
     {
-        var row = Controller().Get("ttf-flat").Value!.Rows[1];
+        var row = (await Controller().Get("ttf-flat", CancellationToken.None)).Value!.Rows[1];
 
         row.Source.Should().Be("computed");
         row.Symbol.Should().BeNull();
@@ -89,18 +96,33 @@ public class ScreensControllerTests
     }
 
     [Fact]
-    public void Get_UnknownScreen_Returns404NamingTheScreen()
+    public async Task Get_UnknownScreen_Returns404NamingTheScreen()
     {
-        var result = Controller().Get("coal");
+        var result = await Controller().Get("coal", CancellationToken.None);
 
         result.Result.Should().BeOfType<NotFoundObjectResult>()
             .Which.Value.Should().Be("There is no screen called 'coal'.");
     }
 
     [Fact]
-    public void GetAll_ReturnsEveryScreen()
+    public async Task GetAll_ReturnsEveryScreen()
     {
-        Controller().GetAll().Select(s => s.Key).Should().Equal("ttf-flat");
+        var result = await Controller().GetAll(CancellationToken.None);
+
+        result.Value!.Select(s => s.Key).Should().Equal("ttf-flat");
+    }
+
+    [Fact]
+    public async Task Get_RegularUserWithoutDeskMembership_IsForbidden()
+    {
+        var user = new CurrentUser("member@braemar.com", "Member", false);
+        var desks = new Mock<IDeskService>();
+        desks.Setup(service => service.CanAccessAsync("natural-gas", user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await Controller(user: user, desks: desks).Get("ttf-flat", CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
     }
 
     [Fact]
@@ -133,5 +155,21 @@ public class ScreensControllerTests
 
         sut.Response.StatusCode.Should().Be(StatusCodes.Status404NotFound);
         sse.Verify(f => f.Create(), Times.Never);
+    }
+
+    [Fact]
+    public async Task Stream_RegularUserWithoutDeskMembership_IsForbiddenWithoutOpeningAStream()
+    {
+        var user = new CurrentUser("member@braemar.com", "Member", false);
+        var desks = new Mock<IDeskService>();
+        desks.Setup(service => service.CanAccessAsync("natural-gas", user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        var sse = WriterFactory();
+        var sut = Controller(sse: sse, user: user, desks: desks);
+
+        await sut.Stream("ttf-flat", CancellationToken.None);
+
+        sut.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        sse.Verify(factory => factory.Create(), Times.Never);
     }
 }

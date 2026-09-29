@@ -1,3 +1,5 @@
+using System.Reactive.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -21,8 +23,8 @@ public class SseWriterTests
     private static string BodyText(MemoryStream ms) =>
         Encoding.UTF8.GetString(ms.ToArray());
 
-    private static IAsyncEnumerable<PricingStateDto> Items(params PricingStateDto[] items) =>
-        items.ToAsyncEnumerable();
+    private static IObservable<PricingStateDto> Items(params PricingStateDto[] items) =>
+        items.ToObservable();
 
     [Fact]
     public async Task StreamAsync_SetsContentTypeHeader()
@@ -69,7 +71,7 @@ public class SseWriterTests
             new PricingStateDto("SYM", new Dictionary<int, string> { { 1, "72" } }),
             new PricingStateDto("SYM", new Dictionary<int, string> { { 1, "99" } }),
         };
-        await sut.StreamAsync(response, dtos.ToAsyncEnumerable(), CancellationToken.None);
+        await sut.StreamAsync(response, dtos.ToObservable(), CancellationToken.None);
         BodyText(ms).Split("event: snapshot").Length.Should().Be(3);
     }
 
@@ -88,8 +90,8 @@ public class SseWriterTests
         var ms = new MemoryStream();
         ctx.Response.Body = ms;
         var sut = new SseWriter(heartbeatInterval: TimeSpan.FromMilliseconds(50));
-        var items = AsyncEnumerable.Empty<PricingStateDto>()
-            .Concat(DelayedEmpty(TimeSpan.FromMilliseconds(150)));
+        var items = Observable.Timer(TimeSpan.FromMilliseconds(150))
+            .SelectMany(_ => Observable.Empty<PricingStateDto>());
         await sut.StreamAsync(ctx.Response, items, CancellationToken.None);
         BodyText(ms).Should().Contain("event: heartbeat");
     }
@@ -101,21 +103,52 @@ public class SseWriterTests
         var ms = new MemoryStream();
         ctx.Response.Body = ms;
         var sut = new SseWriter(heartbeatInterval: TimeSpan.FromMilliseconds(50));
-        async IAsyncEnumerable<PricingStateDto> FastItems()
-        {
-            for (int i = 0; i < 20; i++)
-            {
-                yield return new PricingStateDto("SYM", new Dictionary<int, string> { { 1, "72" } });
-                await Task.Delay(10);
-            }
-        }
-        await sut.StreamAsync(ctx.Response, FastItems(), CancellationToken.None);
+        var fastItems = Observable.Interval(TimeSpan.FromMilliseconds(10))
+            .Take(20)
+            .Select(_ => new PricingStateDto("SYM", new Dictionary<int, string> { { 1, "72" } }));
+        await sut.StreamAsync(ctx.Response, fastItems, CancellationToken.None);
         BodyText(ms).Should().NotContain("event: heartbeat");
     }
 
-    private static async IAsyncEnumerable<PricingStateDto> DelayedEmpty(TimeSpan delay)
+    [Fact]
+    public async Task StreamAsync_ClientDisconnects_CompletesWithoutThrowing()
     {
-        await Task.Delay(delay);
-        yield break;
+        var (sut, response, _) = Build(TimeSpan.FromMilliseconds(20));
+        using var disconnect = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        var streaming = sut.StreamAsync(response, Observable.Never<PricingStateDto>(), disconnect.Token);
+
+        var first = await Task.WhenAny(streaming, Task.Delay(TimeSpan.FromSeconds(2)));
+        first.Should().BeSameAs(streaming, "the stream must end once the client has gone");
+        await FluentActions.Awaiting(() => streaming).Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task StreamAsync_ClientDisconnects_RaisesNoCancellationExceptionInternally()
+    {
+        // A client closing the page is the normal end of a stream, so it must not be signalled by an exception -
+        // not even one the writer catches itself.
+        var thrownBySseWriter = new List<Exception>();
+        void Record(object? sender, FirstChanceExceptionEventArgs e)
+        {
+            if (e.Exception is OperationCanceledException && (e.Exception.StackTrace ?? "").Contains(nameof(SseWriter)))
+            {
+                lock (thrownBySseWriter) { thrownBySseWriter.Add(e.Exception); }
+            }
+        }
+        var (sut, response, _) = Build(TimeSpan.FromMilliseconds(20));
+        using var disconnect = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        AppDomain.CurrentDomain.FirstChanceException += Record;
+        try
+        {
+            await sut.StreamAsync(response, Observable.Never<PricingStateDto>(), disconnect.Token);
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.FirstChanceException -= Record;
+        }
+
+        thrownBySseWriter.Should().BeEmpty();
     }
 }

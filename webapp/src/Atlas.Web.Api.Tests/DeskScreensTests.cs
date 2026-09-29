@@ -8,7 +8,7 @@ using Microsoft.Extensions.Configuration;
 namespace Atlas.Web.Api.Tests;
 
 /// <summary>
-/// The real thing, end to end: ICE's contract list (ice-instruments.json, built from ICE's files of 17 Sep 2026)
+/// The real thing, end to end: ICE's contract list (ice-instruments.json, built from ICE's files of 24 Sep 2026)
 /// and the desk's counts exactly as written in appsettings.json. These pin what the gas desk (Harrison Lee)
 /// agreed on 2026-09-21. If a count in appsettings.json is changed on purpose, update the matching test.
 /// </summary>
@@ -183,5 +183,87 @@ public class DeskScreensTests
 
         labels.Should().NotContain(new[] { "Apr27/Jun27", "Apr27/Aug27" });
         labels.Should().Contain("Jul27/Sep28");
+    }
+
+    [Theory]
+    [InlineData("ARA")]
+    [InlineData("Newcastle")]
+    public void AppSettings_CarryTheCoalCountsTheDeskAgreed(string hub)
+    {
+        var flat = RulesFromAppSettings().FlatFor(hub);
+
+        flat.Months.Should().Be(6);
+        flat.Quarters.Should().Be(4);
+        flat.Seasons.Should().Be(0);
+        flat.Cals.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("ARA")]
+    [InlineData("Newcastle")]
+    public void AppSettings_CoalSpreadRules_AreSixConsecutiveMonthsThreeTwoApartAndTwoQuarters_NotDoubledByTheBinder(string hub)
+    {
+        var spreads = RulesFromAppSettings().SpreadsFor(hub);
+
+        spreads.Months.Select(p => (p.Gap, p.Count)).Should().Equal((1, 6), (2, 3));
+        spreads.Quarters.Select(p => (p.Gap, p.Count)).Should().Equal((1, 2));
+        spreads.Seasons.Should().BeEmpty();
+        spreads.Cals.Should().BeEmpty();
+    }
+
+    // Coal months trade through their delivery month: Sep26 stops on 25 Sep 2026. This is the first weekday after.
+    private static readonly DateOnly CoalAgreedOn = new(2026, 9, 28);
+
+    [Theory]
+    [InlineData(ScreenBuilder.CoalApi2Key, "ARA")]
+    [InlineData(ScreenBuilder.CoalNewcastleKey, "Newcastle")]
+    public void CoalFlatRows_OnTheDayAgreed_AreSixMonthsFourQuartersNoSeasonsTwoCals(string key, string hub)
+    {
+        var screen = Build(key, CoalAgreedOn);
+
+        Labels(screen, "Months").Should().Equal("Oct26", "Nov26", "Dec26", "Jan27", "Feb27", "Mar27");
+        Labels(screen, "Quarters").Should().Equal("Q4 26", "Q1 27", "Q2 27", "Q3 27");
+        Labels(screen, "Seasons").Should().BeEmpty();
+        Labels(screen, "Cals").Should().Equal("Cal 27", "Cal 28");
+        screen.Rows.Should().HaveCount(12).And.OnlyContain(r => r.Hub == hub && r.Source == RowSource.Quoted);
+    }
+
+    [Fact]
+    public void CoalFlatRows_UseIcesRealSymbols()
+    {
+        var ara = Build(ScreenBuilder.CoalApi2Key, CoalAgreedOn);
+        var newcastle = Build(ScreenBuilder.CoalNewcastleKey, CoalAgreedOn);
+
+        ara.Rows.Single(r => r.Label == "Oct26").Symbol.Should().Be("ATW 26V-ICE");
+        ara.Rows.Single(r => r.Label == "Q4 26").Symbol.Should().Be("ATWQ 26V-ICE");
+        ara.Rows.Single(r => r.Label == "Cal 27").Symbol.Should().Be("ATWY 27F-ICE");
+        newcastle.Rows.Single(r => r.Label == "Oct26").Symbol.Should().Be("NCF 26V-ICE");
+    }
+
+    [Fact]
+    public void CoalMonths_TradeThroughTheirDeliveryMonth_SoSep26IsStillOnScreenOn24SepWhileGasShowsOct26()
+    {
+        var onThe24th = new DateOnly(2026, 9, 24);
+
+        Labels(Build(ScreenBuilder.CoalApi2Key, onThe24th), "Months").First().Should().Be("Sep26");
+        Labels(Build(ScreenBuilder.TtfFlatKey, onThe24th), "Months").First().Should().Be("Oct26");
+        Labels(Build(ScreenBuilder.CoalApi2Key, CoalAgreedOn), "Months").First().Should().Be("Oct26");
+    }
+
+    [Fact]
+    public void CoalSpreads_AreRotterdamsThenNewcastles_AllQuotedByIce()
+    {
+        var screen = Build(ScreenBuilder.CoalSpreadsKey, CoalAgreedOn);
+
+        var perHub = new[]
+        {
+            "Oct26/Nov26", "Oct26/Dec26", "Nov26/Dec26", "Nov26/Jan27", "Dec26/Jan27", "Dec26/Feb27", "Jan27/Feb27",
+            "Feb27/Mar27", "Mar27/Apr27", "Q4 26/Q1 27", "Q1 27/Q2 27",
+        };
+        screen.Rows.Where(r => r.Hub == "ARA").Select(r => r.Label).Should().Equal(perHub);
+        screen.Rows.Where(r => r.Hub == "Newcastle").Select(r => r.Label).Should().Equal(perHub);
+        screen.Rows.Select(r => r.Hub).Should().Equal(Enumerable.Repeat("ARA", 11).Concat(Enumerable.Repeat("Newcastle", 11)));
+        screen.Rows.Should().OnlyContain(r => r.Source == RowSource.Quoted);
+        screen.Rows.Single(r => r.Hub == "ARA" && r.Label == "Oct26/Nov26").Symbol.Should().Be("ATW 26V:ATW26X-ICE");
     }
 }

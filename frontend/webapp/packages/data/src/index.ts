@@ -3,3 +3,5 @@ export * from "./store/natgas.store";
 export * from "./models/natgas.schemas";
 export * from "./models/eventMessage.schemas";
 export * from "./models/screen.schemas";
+export * from "./models/desk.schemas";
+export * from "./models/me.schemas";

@@ -1,7 +1,7 @@
 
 import { Value } from "@sinclair/typebox/value";
 
-import { EventMessageTypes, InstrumentSchema } from "@atlas/data";
+import { EventMessageTypes, InstrumentSchema, commodityOf } from "@atlas/data";
 import type { NatGasEventMessage, NatGasQuote, StripIdentity } from "@atlas/data";
 import type { PricingStreamEventDto } from "../dto/pricing-stream-event.dto";
 
@@ -19,7 +19,11 @@ export const IceFieldIds = {
   delayMinutes: "47",// LRT_TYPE_MINUTESDELAYED — 10 on the Sep 2026 trial, which is a delayed feed
   bidSize: "30",     // LRT_TYPE_BIDSIZE — absent from the recorded (delayed) feed
   askSize: "31",     // LRT_TYPE_ASKSIZE — absent from the recorded (delayed) feed
+  openInterest: "109",   // LRT_TYPE_OPENINTEREST ("OI" on WebICE)
+  wap: "267",            // LRT_TYPE_VWAP — the volume-weighted average price ("WAP" on WebICE)
   settle: "273",     // LRT_TYPE_SETTLEMENT
+  impliedBidSize: "581", // LRT_TYPE_IMPLIED_BID_SIZE — what the spread markets make available at the implied bid
+  impliedAskSize: "582", // LRT_TYPE_IMPLIED_ASK_SIZE — and at the implied offer; the implied prices are worked out in the browser
   blockVolume: "924",// LRT_TYPE_BLOCK_VOL
   hub: "951",        // LRT_TYPE_HUB, e.g. "TTF"
   stripName: "971",  // LRT_TYPE_STRIP_NAME, e.g. "Apr26"
@@ -35,6 +39,7 @@ export const PricingEventActions = {
 const NumericQuoteKeys = [
   "bid", "ask", "last", "netChange", "prevSettle", "volume",
   "bidSize", "askSize", "high", "low", "settle", "blockVolume", "delayMinutes",
+  "openInterest", "wap", "impliedBidSize", "impliedAskSize",
 ] as const;
 
 const toNumber = (v: string | undefined): number | undefined => {
@@ -70,7 +75,7 @@ export function mapPricingStreamEvent(
 
   const quote: Partial<NatGasQuote> = {
     exchange: "ICE",
-    commodity: "GAS",
+    commodity: commodityOf(hub),
     instrument: hub,
     // ICE's strip name, verbatim ("Oct26", "Winter26", "Q4 26") — it is the row label on the ICE screen.
     tenor: stripName,

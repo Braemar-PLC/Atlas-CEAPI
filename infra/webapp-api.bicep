@@ -24,6 +24,24 @@ param icePort int = 9002
 @description('ASP.NET Core environment name.')
 param aspNetCoreEnvironment string = 'Production'
 
+@description('The Entra app role value used for desk administration.')
+param adminRole string = 'Admin'
+
+@description('Microsoft Entra tenant ID used by App Service Authentication.')
+@secure()
+param entraTenantId string
+
+@description('Microsoft Entra app registration client ID used by App Service Authentication.')
+@secure()
+param entraClientId string
+
+@description('Client secret for the Microsoft Entra app registration. Supply through a GitHub Actions secret.')
+@secure()
+param entraIdSecret string
+
+@description('Absolute path for the SQLite database on App Service persistent storage.')
+param databasePath string = '/home/data/atlas.db'
+
 var appInsightsName = '${prefix}-api-ai'
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
@@ -70,6 +88,30 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
           value: string(icePort)
         }
         {
+          name: 'Database__Path'
+          value: databasePath
+        }
+        {
+          name: 'Auth__AdminRole'
+          value: adminRole
+        }
+        {
+          name: 'WEBSITE_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
+        }
+        {
+          name: 'ENTRA_TENANT_ID'
+          value: entraTenantId
+        }
+        {
+          name: 'ENTRA_CLIENT_ID'
+          value: entraClientId
+        }
+        {
+          name: 'ENTRA_ID_SECRET'
+          value: entraIdSecret
+        }
+        {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: appInsights.properties.ConnectionString
         }
@@ -82,6 +124,46 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
           value: '1'
         }
       ]
+    }
+  }
+}
+
+resource appServiceAuthSettings 'Microsoft.Web/sites/config@2024-11-01' = {
+  parent: appService
+  name: 'authsettingsV2'
+  properties: {
+    platform: {
+      enabled: true
+      runtimeVersion: '~1'
+    }
+    globalValidation: {
+      // Keep the SPA sign-in page public; the API's ASP.NET fallback policy protects API endpoints.
+      requireAuthentication: false
+      unauthenticatedClientAction: 'AllowAnonymous'
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: entraClientId
+          clientSecretSettingName: 'ENTRA_ID_SECRET'
+          openIdIssuer: 'https://login.microsoftonline.com/${entraTenantId}/v2.0'
+        }
+        validation: {
+          allowedAudiences: [
+            entraClientId
+            'api://${entraClientId}'
+          ]
+        }
+      }
+    }
+    login: {
+      tokenStore: {
+        enabled: true
+      }
+    }
+    httpSettings: {
+      requireHttps: true
     }
   }
 }

@@ -5,17 +5,22 @@ using Atlas.Web.Core.Domain.Models;
 namespace Atlas.Web.Core.Domain.Logic;
 
 /// <summary>
-/// Turns the desk's rules into the rows of each screen for a given day.
+/// Turns the desks' rules into the rows of each screen for a given day.
 ///
 /// Everything counts from the FRONT MONTH: the nearest month contract that is still trading - not the calendar
-/// month. Oct26 stops trading on 29 Sep 2026, so on 30 Sep the front month is already Nov26 although it is still
-/// September. Quarters, seasons and calendar years each begin with the first one that starts on or after the
-/// front month. A strip stays on screen through its last trading day and is gone the next morning, and the next
-/// strip along takes the freed place - that is the automatic roll the desk asked for.
+/// month. Gas Oct26 stops trading on 29 Sep 2026, so on 30 Sep the front month is already Nov26 although it is
+/// still September. Coal months trade on into their delivery month (Sep26 until 25 Sep 2026), so on 24 Sep coal's
+/// front month is still Sep26 while gas has moved to Oct26 - nothing here knows the difference, the catalogue's
+/// expiry dates carry it. Quarters, seasons and calendar years each begin with the first one that starts on or
+/// after the front month. A strip stays on screen through its last trading day and is gone the next morning, and
+/// the next strip along takes the freed place - that is the automatic roll the desks asked for.
 ///
 /// Spreads follow the desk's rule of 2026-09-21: if the exchange quotes the pair as a contract ("vanilla":
 /// month/month, quarter/quarter, season/season, cal/cal), use the exchange's own price. Only when it does not
 /// (a month against a quarter, say) is the row worked out from its two legs.
+///
+/// Each hub's counts come from <see cref="ScreenRules.FlatFor"/> and <see cref="ScreenRules.SpreadsFor"/>: the
+/// gas hubs share the defaults, the coal hubs have their own.
 ///
 /// This class is pure logic: no clock, no files, no network. Same inputs, same screens.
 /// </summary>
@@ -24,8 +29,17 @@ public sealed class ScreenBuilder
     public const string TtfFlatKey = "ttf-flat";
     public const string TtfSpreadsKey = "ttf-spreads";
     public const string NbpKey = "nbp";
+    public const string CoalApi2Key = "coal-api2";
+    public const string CoalNewcastleKey = "coal-newcastle";
+    public const string CoalSpreadsKey = "coal-spreads";
 
     public const string SpreadsGroup = "Spreads";
+
+    // Hub names as the catalogue (and ICE's field 951) spell them.
+    private const string TtfHub = "TTF";
+    private const string NbpHub = "NBP";
+    private const string AraHub = "ARA";
+    private const string NewcastleHub = "Newcastle";
 
     // Top-to-bottom order of the blocks on a screen, as on the desk's Edgeview: months, quarters, seasons, cals.
     private static readonly StripKind[] KindOrder =
@@ -58,10 +72,14 @@ public sealed class ScreenBuilder
     {
         return new[]
         {
-            new Screen(TtfFlatKey, "Nat Gas TTF Flat Price", FlatRows("TTF", today)),
-            new Screen(TtfSpreadsKey, "Nat Gas TTF Spreads", SpreadRows("TTF", today)),
+            new Screen(TtfFlatKey, "Nat Gas TTF Flat Price", FlatRows(TtfHub, today)),
+            new Screen(TtfSpreadsKey, "Nat Gas TTF Spreads", SpreadRows(TtfHub, today)),
             // The desk asked for NBP on one screen: flat prices, then the spreads below.
-            new Screen(NbpKey, "Nat Gas NBP", FlatRows("NBP", today).Concat(SpreadRows("NBP", today)).ToList()),
+            new Screen(NbpKey, "Nat Gas NBP", FlatRows(NbpHub, today).Concat(SpreadRows(NbpHub, today)).ToList()),
+            new Screen(CoalApi2Key, "Coal API2 (Rotterdam)", FlatRows(AraHub, today)),
+            new Screen(CoalNewcastleKey, "Coal Newcastle", FlatRows(NewcastleHub, today)),
+            // Both coal hubs' spreads on one screen, Rotterdam's first, as on WebICE's Coal tab.
+            new Screen(CoalSpreadsKey, "Coal Spreads", SpreadRows(AraHub, today).Concat(SpreadRows(NewcastleHub, today)).ToList()),
         };
     }
 
@@ -71,7 +89,7 @@ public sealed class ScreenBuilder
         foreach (var kind in KindOrder)
         {
             // If the exchange lists fewer strips than asked for (NBP has few calendar years), show what exists.
-            foreach (var strip in Strips(hub, kind, today).Take(CountFor(kind)))
+            foreach (var strip in Strips(hub, kind, today).Take(CountFor(hub, kind)))
             {
                 rows.Add(new ScreenRow(hub, strip.Name, GroupNames[kind], RowSource.Quoted, strip.Symbol, null, null));
             }
@@ -87,7 +105,7 @@ public sealed class ScreenBuilder
         foreach (var kind in KindOrder)
         {
             var strips = Strips(hub, kind, today);
-            foreach (var rule in PairRulesFor(kind))
+            foreach (var rule in PairRulesFor(hub, kind))
             {
                 for (var i = 0; i < rule.Count && i + rule.Gap < strips.Count; i++)
                 {
@@ -163,19 +181,27 @@ public sealed class ScreenBuilder
             .ToList();
     }
 
-    private int CountFor(StripKind kind) => kind switch
+    private int CountFor(string hub, StripKind kind)
     {
-        StripKind.Month => _rules.Flat.Months,
-        StripKind.Quarter => _rules.Flat.Quarters,
-        StripKind.Season => _rules.Flat.Seasons,
-        _ => _rules.Flat.Cals,
-    };
+        var flat = _rules.FlatFor(hub);
+        return kind switch
+        {
+            StripKind.Month => flat.Months,
+            StripKind.Quarter => flat.Quarters,
+            StripKind.Season => flat.Seasons,
+            _ => flat.Cals,
+        };
+    }
 
-    private List<PairRule> PairRulesFor(StripKind kind) => kind switch
+    private List<PairRule> PairRulesFor(string hub, StripKind kind)
     {
-        StripKind.Month => _rules.Spreads.Months,
-        StripKind.Quarter => _rules.Spreads.Quarters,
-        StripKind.Season => _rules.Spreads.Seasons,
-        _ => _rules.Spreads.Cals,
-    };
+        var spreads = _rules.SpreadsFor(hub);
+        return kind switch
+        {
+            StripKind.Month => spreads.Months,
+            StripKind.Quarter => spreads.Quarters,
+            StripKind.Season => spreads.Seasons,
+            _ => spreads.Cals,
+        };
+    }
 }

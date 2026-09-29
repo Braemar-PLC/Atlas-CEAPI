@@ -265,4 +265,79 @@ public class ScreenBuilderTests
         // Oct26 is both a flat row and a leg; it is listed once.
         screen.Symbols.Should().Equal("NBP:Oct26", "NBP:Q1 27");
     }
+
+    [Fact]
+    public void Build_ReturnsTheGasScreensThenTheCoalScreens()
+    {
+        var keys = new ScreenBuilder(Catalogue(), Rules()).Build(MidSeptember).Select(s => s.Key);
+
+        keys.Should().Equal(
+            ScreenBuilder.TtfFlatKey, ScreenBuilder.TtfSpreadsKey, ScreenBuilder.NbpKey,
+            ScreenBuilder.CoalApi2Key, ScreenBuilder.CoalNewcastleKey, ScreenBuilder.CoalSpreadsKey);
+    }
+
+    [Fact]
+    public void Build_CoalScreen_UsesItsHubsOwnCounts_WhileTtfKeepsTheDefault()
+    {
+        var catalogue = Catalogue().WithStrips("ARA", new DateOnly(2026, 10, 1), 60);
+        var rules = Rules(configure: r => r.Hubs["ARA"] = new HubRules
+        {
+            Flat = new FlatRule { Months = 1, Quarters = 1, Seasons = 0, Cals = 0 },
+        });
+
+        var coal = Build(catalogue, rules, MidSeptember, ScreenBuilder.CoalApi2Key);
+        var ttf = Build(catalogue, rules, MidSeptember, ScreenBuilder.TtfFlatKey);
+
+        coal.Rows.Select(r => r.Label).Should().Equal("Oct26", "Q4 26");
+        coal.Rows.Should().OnlyContain(r => r.Hub == "ARA");
+        Labels(ttf, "Months").Should().Equal("Oct26", "Nov26", "Dec26");
+    }
+
+    [Fact]
+    public void Build_HubWithoutRulesOfItsOwn_UsesTheDefaultCounts()
+    {
+        var catalogue = Catalogue().WithStrips("Newcastle", new DateOnly(2026, 10, 1), 60);
+
+        var screen = Build(catalogue, Rules(), MidSeptember, ScreenBuilder.CoalNewcastleKey);
+
+        Labels(screen, "Months").Should().Equal("Oct26", "Nov26", "Dec26");
+        Labels(screen, "Quarters").Should().Equal("Q4 26", "Q1 27");
+        Labels(screen, "Seasons").Should().Equal("Winter26", "Summer27");
+        Labels(screen, "Cals").Should().Equal("Cal 27");
+    }
+
+    [Fact]
+    public void Build_CoalSpreadsScreen_ListsRotterdamsSpreadsThenNewcastles()
+    {
+        var catalogue = Catalogue()
+            .WithStrips("ARA", new DateOnly(2026, 10, 1), 60).WithBackToBackSpreads("ARA", StripKind.Month)
+            .WithStrips("Newcastle", new DateOnly(2026, 10, 1), 60).WithBackToBackSpreads("Newcastle", StripKind.Month);
+        var rules = Rules(configure: r => r.Spreads.Months.Add(new PairRule { Gap = 1, Count = 2 }));
+
+        var screen = Build(catalogue, rules, MidSeptember, ScreenBuilder.CoalSpreadsKey);
+
+        screen.Rows.Select(r => (r.Hub, r.Label)).Should().Equal(
+            ("ARA", "Oct26/Nov26"), ("ARA", "Nov26/Dec26"), ("Newcastle", "Oct26/Nov26"), ("Newcastle", "Nov26/Dec26"));
+        screen.Rows.Should().OnlyContain(r => r.Group == ScreenBuilder.SpreadsGroup && r.Source == RowSource.Quoted);
+    }
+
+    [Fact]
+    public void Build_HubWithItsOwnSpreadRules_GetsThoseInsteadOfTheDefault_NotAsWell()
+    {
+        var catalogue = Catalogue().WithStrips("ARA", new DateOnly(2026, 10, 1), 60);
+        var rules = Rules(configure: r =>
+        {
+            r.Spreads.Months.Add(new PairRule { Gap = 1, Count = 2 });
+            r.Spreads.Quarters.Add(new PairRule { Gap = 1, Count = 1 });
+            var own = new SpreadRule();
+            own.Months.Add(new PairRule { Gap = 2, Count = 1 });
+            r.Hubs["ARA"] = new HubRules { Spreads = own };
+        });
+
+        var coal = Build(catalogue, rules, MidSeptember, ScreenBuilder.CoalSpreadsKey);
+        var ttf = Build(catalogue, rules, MidSeptember, ScreenBuilder.TtfSpreadsKey);
+
+        coal.Rows.Select(r => r.Label).Should().Equal("Oct26/Dec26");
+        ttf.Rows.Select(r => r.Label).Should().Equal("Oct26/Nov26", "Nov26/Dec26", "Q4 26/Q1 27");
+    }
 }

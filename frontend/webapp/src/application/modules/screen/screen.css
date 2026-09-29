@@ -1,0 +1,119 @@
+/* ICE-screen look for the natgas grid. Grid-wide colours are in screen.theme.ts; this file holds
+   what a theme cannot express: the title bar, the red/green bars and the tick square.
+   Proportions follow the mock the desk approved: title ≈ 0.95 × row height, header ≈ 1.15 × row height. */
+
+/* The screen fills the space under the top bar (src/routes/__root.tsx makes the page one window tall).
+   Title on top, grid taking whatever height is left. Padding, not margin, so 100% height still fits. */
+.ice-screen {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Screen name on the left, "Prices as of 15:10:00" on the right. */
+.ice-screen-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 14px;
+  background: #dde5ee;
+  color: #1b1f24;
+  font-size: 14px;
+  line-height: 16px;
+  text-align: left;
+}
+
+.ice-screen-asof {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums; /* digits all one width, so the ticking clock does not wobble */
+}
+
+/* Right-hand end of the title bar: "Reset columns" (only once a column has been dragged), then the clock. */
+.ice-screen-title-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Looks like a quiet link, not a button: the title bar is ICE's, and this is the one control Atlas adds to it.
+   It takes the title bar's own height, so appearing and disappearing never moves anything. */
+.ice-screen-reset {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  line-height: inherit;
+  color: #2b4a8c;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ice-screen-reset:hover { color: #16284f; }
+.ice-screen-reset:focus-visible { outline: 2px solid #2b4a8c; outline-offset: 2px; }
+
+/* "Freeze panes": this box has a fixed height (what is left of the window), the grid inside it scrolls its
+   own rows, and AG Grid keeps the column headers pinned. Black shows below the rows when they all fit. */
+.ice-screen-grid {
+  flex: 1;
+  min-height: 0;
+  background: #000000;
+}
+
+/* Faint row lines on every cell except the bars. */
+.ice-screen .ag-cell:not(.ice-bar) {
+  border-bottom: 1px solid #1c1c1c;
+}
+
+/* Regular weight, NOT bold. Bold was tried on 21 Sep 2026 ("thicker numbers") and the desk preferred the
+   figures as they were, just larger - so the size went up (18px, in screen.theme.ts) and the weight stayed 400.
+   tabular-nums makes every digit the same width, so a column of prices lines up and does not shimmer as they tick. */
+.ice-screen .ag-cell {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Figures and their headers are centred; Strip is left-aligned (the AG Grid default). */
+.ice-screen .ag-cell.ice-centred {
+  text-align: center;
+}
+.ice-screen .ag-header-cell.ice-centred-header .ag-header-cell-label {
+  justify-content: center;
+}
+
+/* Red beside the bid side, green beside the offer side. They keep their colour on a selected row. */
+.ice-screen .ag-cell.ice-bar {
+  padding: 0;
+  border: none;
+}
+.ice-screen .ag-cell.ice-bar-bid { background: #e0201c; }
+.ice-screen .ag-cell.ice-bar-ask { background: #12c23c; }
+.ice-screen .ag-header-cell.ice-bar-header { padding: 0; }
+
+/* While Last flashes yellow (AG Grid adds .ag-cell-data-changed for the flash), show the figure in black:
+   white on highlighter yellow cannot be read. */
+.ice-screen .ag-cell.ag-cell-data-changed {
+  color: #000000;
+}
+
+/* Tick square after Last: green when the last price rose, red when it fell.
+   The space is always reserved so the figures stay in line whether or not a tick is known. */
+.ice-screen .ice-last::after {
+  content: "";
+  display: inline-block;
+  /* Grown with the figures (8px beside 15px text, now 9px beside 18px) so it still reads as part of the price. */
+  width: 9px;
+  height: 9px;
+  margin-left: 3px;
+  background: transparent;
+}
+.ice-screen .ice-last.ice-tick-up::after { background: #12c23c; }
+.ice-screen .ice-last.ice-tick-down::after { background: #e0201c; }
+
+/* The implied block (coal screens): a line down the left of its first column sets it apart from the traded
+   market, as on WebICE. */
+.ice-screen .ag-cell.ice-implied-first,
+.ice-screen .ag-header-cell.ice-implied-first {
+  border-left: 1px solid #4a5563;
+}

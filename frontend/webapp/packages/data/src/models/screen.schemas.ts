@@ -51,3 +51,6 @@ export function stripsBySymbol(screen: Screen): Map<string, StripIdentity> {
   }
   return strips;
 }
+
+/** The API's group name for spread rows (ScreenBuilder.SpreadsGroup); every other group is an outright. */
+export const SpreadsGroup = "Spreads";
