@@ -58,7 +58,9 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapFallbackToFile("index.html");
+// The SPA shell holds no data and must load for signed-out users so it can show its sign-in page;
+// API controllers remain covered by the authenticated fallback policy.
+app.MapFallbackToFile("index.html").AllowAnonymous();
 app.Run();
 
 static void ConfigureDI(IServiceCollection services)
