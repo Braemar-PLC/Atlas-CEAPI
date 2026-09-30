@@ -143,6 +143,16 @@ jobs:
         id: deploy
         shell: pwsh
         run: |
+          # ACI does not allow an existing container group to move from a public
+          # IP to a VNet subnet. The CEAPI group is an Atlas-owned application
+          # resource, so recreate this group after the what-if has passed.
+          az container delete `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --name "$env:CEAPI_CONTAINER_GROUP" `
+            --yes `
+            --output none `
+            2>$null
+
           $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
           az deployment group create `
             --name "ceapi-aci-${{ github.run_id }}" `
