@@ -1,0 +1,82 @@
+name: VNet - Show network state
+
+# Manual diagnostic workflow: reports what is needed to decide how to put the CEAPI container and
+# the Web App onto the corporate VNet. Reads only; changes nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      vnet_name:
+        description: Virtual network to inspect
+        required: true
+        default: BraemarSecurities-Development-VNET
+
+jobs:
+  show:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+      WEBAPP_NAME: ${{ secrets.WEBAPP_NAME }}
+      CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+      VNET_NAME: ${{ inputs.vnet_name }}
+
+    steps:
+      - name: Azure login using service principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Find the virtual network
+        shell: bash
+        run: |
+          echo "--- virtual network (any resource group, any subscription we can see) ---"
+          az graph query -q "
+            Resources
+            | where type =~ 'microsoft.network/virtualnetworks'
+            | where name =~ '$VNET_NAME'
+            | project name, resourceGroup, subscriptionId, location,
+                      addressSpace = properties.addressSpace.addressPrefixes
+          " --output json || echo "az graph unavailable; falling back to az network vnet list"
+          az network vnet list \
+            --query "[?name=='$VNET_NAME'].{name:name, rg:resourceGroup, location:location, space:addressSpace.addressPrefixes}" \
+            --output json || true
+
+      - name: Show every subnet, its size, delegation and what is already in it
+        shell: bash
+        run: |
+          VNET_RG=$(az network vnet list --query "[?name=='$VNET_NAME'].resourceGroup | [0]" --output tsv)
+          echo "VNet resource group: $VNET_RG"
+          az network vnet subnet list \
+            --resource-group "$VNET_RG" \
+            --vnet-name "$VNET_NAME" \
+            --query "[].{name:name, prefix:addressPrefix, delegation:delegations[].serviceName, inUseBy:ipConfigurations[].id, natGateway:natGateway.id, nsg:networkSecurityGroup.id, routeTable:routeTable.id}" \
+            --output json
+
+      - name: Show the App Service plan tier and the Web App's current VNet integration
+        shell: bash
+        run: |
+          PLAN_ID=$(az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" --query appServicePlanId --output tsv)
+          echo "--- App Service plan (VNet integration needs Basic or higher) ---"
+          az appservice plan show --ids "$PLAN_ID" \
+            --query "{name:name, tier:sku.tier, size:sku.name, capacity:sku.capacity, linux:reserved}" \
+            --output json
+          echo "--- current outbound VNet integration, if any ---"
+          az webapp vnet-integration list \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEBAPP_NAME" \
+            --output json || true
+          echo "--- the Web App's current outbound IPs (what ICE would see today) ---"
+          az webapp show --resource-group "$RESOURCE_GROUP" --name "$WEBAPP_NAME" \
+            --query "{outbound:outboundIpAddresses, possible:possibleOutboundIpAddresses}" --output json
+
+      - name: Show the container group's current address
+        shell: bash
+        run: |
+          az container show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CEAPI_CONTAINER_GROUP" \
+            --query "{osType:osType, sku:sku, type:ipAddress.type, ip:ipAddress.ip, fqdn:ipAddress.fqdn, subnets:subnetIds}" \
+            --output json
