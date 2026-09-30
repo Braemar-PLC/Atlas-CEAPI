@@ -1,6 +1,15 @@
 @description('Azure region for the deployment.')
 param location string = resourceGroup().location
 
+@description('Existing VNet that will contain the private CEAPI subnet.')
+param vnetName string = 'BraemarSecurities-Development-VNET'
+
+@description('Dedicated subnet for the ACI container group. Must be at least /24.')
+param ceapiSubnetName string = 'CEAPI'
+
+@description('Address prefix for the dedicated ACI subnet.')
+param ceapiSubnetPrefix string = '10.10.14.0/24'
+
 @description('Short prefix used in resource names.')
 param prefix string = 'atlas'
 
@@ -40,6 +49,60 @@ param keyVaultName string = toLower('${prefix}kv${uniqueString(resourceGroup().i
 var logAnalyticsWorkspaceName = '${prefix}-law'
 var logAnalyticsWorkspaceSku = 'PerGB2018'
 var logAnalyticsRetention = 30
+var ceapiNatGatewayName = '${prefix}-ceapi-nat'
+var ceapiNatPublicIpName = '${prefix}-ceapi-nat-ip'
+
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
+  name: vnetName
+}
+
+resource ceapiNatPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
+  name: ceapiNatPublicIpName
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+  }
+}
+
+resource ceapiNatGateway 'Microsoft.Network/natGateways@2024-05-01' = {
+  name: ceapiNatGatewayName
+  location: location
+  sku: {
+    name: 'Standard'
+  }
+  properties: {
+    publicIpAddresses: [
+      {
+        id: ceapiNatPublicIp.id
+      }
+    ]
+    idleTimeoutInMinutes: 10
+  }
+}
+
+resource ceapiSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
+  parent: vnet
+  name: ceapiSubnetName
+  properties: {
+    addressPrefixes: [
+      ceapiSubnetPrefix
+    ]
+    delegations: [
+      {
+        name: 'containerInstances'
+        properties: {
+          serviceName: 'Microsoft.ContainerInstance/containerGroups'
+        }
+      }
+    ]
+    natGateway: {
+      id: ceapiNatGateway.id
+    }
+  }
+}
 
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
@@ -89,6 +152,11 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
     osType: 'Windows'
     restartPolicy: 'Always'
     sku: 'Standard'
+    subnetIds: [
+      {
+        id: ceapiSubnet.id
+      }
+    ]
     containers: [
       {
         name: 'ceapi'
@@ -149,8 +217,7 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
       }
     ]
     ipAddress: {
-      type: 'Public'
-      dnsNameLabel: toLower('${prefix}-ceapi-${uniqueString(resourceGroup().id)}')
+      type: 'Private'
       ports: [
         {
           port: ceapiPort
@@ -161,7 +228,6 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
   }
 }
 
-output ceapiContainerGroupFqdn string = ceapiContainerGroup.properties.ipAddress.fqdn
 output ceapiContainerGroupIp string = ceapiContainerGroup.properties.ipAddress.ip
 output acrLoginServer string = acr.properties.loginServer
 output keyVaultName string = kv.name

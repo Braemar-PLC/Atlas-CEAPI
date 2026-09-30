@@ -3,6 +3,15 @@
 @description('Azure region for the deployment.')
 param location string = resourceGroup().location
 
+@description('Existing VNet used for private access to the CEAPI container.')
+param vnetName string = 'BraemarSecurities-Development-VNET'
+
+@description('Dedicated App Service regional VNet integration subnet.')
+param appServiceIntegrationSubnetName string = 'AppService-Integration'
+
+@description('Address prefix for the App Service integration subnet.')
+param appServiceIntegrationSubnetPrefix string = '10.10.13.0/26'
+
 @description('Short prefix used in resource names.')
 param prefix string = 'atlas'
 
@@ -15,7 +24,7 @@ param appServicePlanName string
 @description('Resource group containing the existing App Service Plan (defaults to this deployment\'s resource group).')
 param appServicePlanResourceGroup string = resourceGroup().name
 
-@description('Hostname of the CEAPI WebSocket endpoint, e.g. the ACI FQDN from ceapi-aci.bicep output ceapiContainerGroupFqdn.')
+@description('Private IP address of the CEAPI WebSocket endpoint from the ACI deployment.')
 param iceEndpoint string
 
 @description('Port of the CEAPI WebSocket endpoint.')
@@ -44,6 +53,28 @@ param databasePath string = '/home/data/atlas.db'
 
 var appInsightsName = '${prefix}-api-ai'
 
+resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
+  name: vnetName
+}
+
+resource appServiceIntegrationSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
+  parent: vnet
+  name: appServiceIntegrationSubnetName
+  properties: {
+    addressPrefixes: [
+      appServiceIntegrationSubnetPrefix
+    ]
+    delegations: [
+      {
+        name: 'appService'
+        properties: {
+          serviceName: 'Microsoft.Web/serverFarms'
+        }
+      }
+    ]
+  }
+}
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: appInsightsName
   location: location
@@ -68,6 +99,7 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
   kind: 'app,linux'
   properties: {
     serverFarmId: appServicePlan.id
+    virtualNetworkSubnetId: appServiceIntegrationSubnet.id
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'

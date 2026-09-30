@@ -49,15 +49,15 @@ jobs:
             fi
           done
 
-          fqdn=$(az container show \
+          endpoint=$(az container show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CEAPI_CONTAINER_GROUP" \
-            --query "ipAddress.fqdn" -o tsv)
-          if [ -z "$fqdn" ]; then
-            echo "Could not resolve CEAPI container FQDN; is $CEAPI_CONTAINER_GROUP deployed?" >&2
+            --query "ipAddress.ip" -o tsv)
+          if [ -z "$endpoint" ]; then
+            echo "Could not resolve CEAPI private IP; is $CEAPI_CONTAINER_GROUP deployed?" >&2
             exit 1
           fi
-          echo "fqdn=$fqdn" >> "$GITHUB_OUTPUT"
+          echo "endpoint=$endpoint" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -111,7 +111,8 @@ jobs:
               appServiceName="$APPSERVICE_NAME" \
               appServicePlanName="$APPSERVICE_PLAN" \
               appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
-              iceEndpoint="${{ steps.ceapi.outputs.fqdn }}" \
+              iceEndpoint="${{ steps.ceapi.outputs.endpoint }}" \
+              vnetName='BraemarSecurities-Development-VNET' \
               entraTenantId="$ENTRA_TENANT_ID" \
               entraClientId="$ENTRA_CLIENT_ID" \
               entraIdSecret="$ENTRA_ID_SECRET"
@@ -128,7 +129,8 @@ jobs:
               appServiceName="$APPSERVICE_NAME" \
               appServicePlanName="$APPSERVICE_PLAN" \
               appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
-              iceEndpoint="${{ steps.ceapi.outputs.fqdn }}" \
+              iceEndpoint="${{ steps.ceapi.outputs.endpoint }}" \
+              vnetName='BraemarSecurities-Development-VNET' \
               entraTenantId="$ENTRA_TENANT_ID" \
               entraClientId="$ENTRA_CLIENT_ID" \
               entraIdSecret="$ENTRA_ID_SECRET"
