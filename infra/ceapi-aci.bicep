@@ -25,8 +25,11 @@ param iceUsername string
 @secure()
 param icePassword string
 
-@description('Comma-separated list of ICE symbols to subscribe to.')
+@description('Comma-separated list of ICE symbols to subscribe to; only used when symbolsUrl cannot be reached.')
 param symbols string = 'TFM 26J-ICN'
+
+@description('The Web API address that lists the symbols its screens need (GET /api/screens/symbols). Empty to use symbols only.')
+param symbolsUrl string = ''
 
 @description('The ACI container group name.')
 param ceapiContainerGroupName string = '${prefix}-ceapi-aci'
@@ -113,6 +116,10 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
             {
               name: 'SYMBOLS'
               value: symbols
+            }
+            {
+              name: 'SYMBOLS_URL'
+              value: symbolsUrl
             }
             {
               name: 'WS_PORT'

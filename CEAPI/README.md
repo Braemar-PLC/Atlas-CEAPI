@@ -33,8 +33,11 @@ resync
 | ICE_HOST      | Yes      | —         | ICE host e.g. cm.dataservices.theice.com |
 | ICE_USERNAME  | Yes      | —         | ICE username                     |
 | ICE_PASSWORD  | Yes      | —         | ICE password                     |
-| ICE_SYMBOLS   | No       | TFM 26J-ICN | Comma-separated symbol list    |
+| SYMBOLS       | Yes, unless SYMBOLS_URL is set | — | Comma-separated symbol list; the fallback when SYMBOLS_URL cannot be reached |
+| SYMBOLS_URL   | No       | —         | Web API address listing the symbols the screens need (`/api/screens/symbols`). Fetched on every ICE connect and re-checked hourly, so the list follows contract rolls and option chains without a restart |
 | WS_PORT       | No       | 9001      | WebSocket server port            |
+
+If ICE drops the session, CEAPI reopens it by itself (backing off 5s, 10s, 30s, 60s, then every 120s) for as long as the Web API is connected.
 
 ## Setup
 

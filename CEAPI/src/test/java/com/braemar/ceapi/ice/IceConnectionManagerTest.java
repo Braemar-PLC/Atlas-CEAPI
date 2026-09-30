@@ -198,7 +198,139 @@ class IceConnectionManagerTest {
         assertDoesNotThrow(() -> captureConnectionListener().onError(connectionEvent));
     }
 
+    // --- Reconnect ---
+
+    @Test
+    void droppedSession_isReopenedAfterTheFirstBackoff_andResubscribes() throws Exception {
+        var scheduler = new ManualScheduler();
+        var reconnecting = managerWith(scheduler, () -> List.of("SYM1"));
+        reconnecting.connect(reconnecting::subscribeAll);
+        ConnectionListener first = captureConnectionListener();
+        fire(first::onConnected);
+
+        fire(first::onDisconnected);
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(5L), scheduler.delays);
+        QuoteManager second = mock(QuoteManager.class);
+        when(factory.createQuoteManager()).thenReturn(second);
+        scheduler.runNext();
+        ArgumentCaptor<ConnectionListener> cap = ArgumentCaptor.forClass(ConnectionListener.class);
+        verify(second).connect(any(), cap.capture());
+        fire(cap.getValue()::onConnected);
+        verify(second).subscribe(eq("SYM1"), eq(listener));
+        org.junit.jupiter.api.Assertions.assertTrue(reconnecting.isConnected());
+    }
+
+    @Test
+    void failedReopens_backOffFurtherEachTime() throws Exception {
+        var scheduler = new ManualScheduler();
+        var reconnecting = managerWith(scheduler, List::of);
+        reconnecting.connect(mock(Runnable.class));
+        fire(captureConnectionListener()::onError);
+        when(factory.createQuoteManager()).thenThrow(new RuntimeException("ICE down"));
+
+        scheduler.runNext();
+        scheduler.runNext();
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(5L, 10L, 30L), scheduler.delays);
+    }
+
+    @Test
+    void errorThenDisconnect_schedulesOnlyOneReopen() throws Exception {
+        var scheduler = new ManualScheduler();
+        var reconnecting = managerWith(scheduler, List::of);
+        reconnecting.connect(mock(Runnable.class));
+        ConnectionListener l = captureConnectionListener();
+
+        fire(l::onError);
+        fire(l::onDisconnected);
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, scheduler.tasks.size());
+    }
+
+    @Test
+    void deliberateDisconnect_isNotReopened() throws Exception {
+        var scheduler = new ManualScheduler();
+        var reconnecting = managerWith(scheduler, List::of);
+        reconnecting.connect(mock(Runnable.class));
+        ConnectionListener l = captureConnectionListener();
+
+        reconnecting.disconnect();
+        fire(l::onDisconnected);
+
+        org.junit.jupiter.api.Assertions.assertTrue(scheduler.tasks.isEmpty());
+    }
+
+    @Test
+    void sessionRestoredByIceBeforeTheBackoff_isLeftAlone() throws Exception {
+        var scheduler = new ManualScheduler();
+        var reconnecting = managerWith(scheduler, List::of);
+        reconnecting.connect(mock(Runnable.class));
+        ConnectionListener l = captureConnectionListener();
+        fire(l::onDisconnected);
+        fire(l::onConnected);
+
+        scheduler.runNext();
+
+        verify(factory, times(1)).createQuoteManager();
+    }
+
+    @Test
+    void refreshSymbols_subscribesOnlyTheNewOnes_andDropsTheGoneOnes() throws Exception {
+        var lists = new java.util.ArrayDeque<List<String>>(List.of(List.of("A", "B"), List.of("B", "C")));
+        var refreshing = managerWith(new ManualScheduler(), lists::poll);
+        refreshing.connect(refreshing::subscribeAll);
+        fire(captureConnectionListener()::onConnected);
+        clearInvocations(quoteManager);
+
+        refreshing.refreshSymbols();
+
+        verify(quoteManager).subscribe(eq("C"), eq(listener));
+        verify(quoteManager).unsubscribe(eq("A"), eq(listener));
+        verify(quoteManager, never()).subscribe(eq("B"), any());
+        verify(quoteManager, never()).unsubscribe(eq("B"), any());
+    }
+
+    @Test
+    void refreshSymbols_whileOffline_doesNothing() {
+        @SuppressWarnings("unchecked")
+        java.util.function.Supplier<List<String>> source = mock(java.util.function.Supplier.class);
+        managerWith(new ManualScheduler(), source).refreshSymbols();
+        verify(source, never()).get();
+    }
+
     // --- Helpers ---
+
+    private IceConnectionManager managerWith(ManualScheduler scheduler,
+            java.util.function.Supplier<List<String>> symbols) {
+        return new IceConnectionManager(settings, factory, listener, symbols, scheduler.executor);
+    }
+
+    private void fire(java.util.function.Consumer<ConnectionEvent> callback) {
+        when(connectionEvent.getConnectedHost()).thenReturn("icehost");
+        when(connectionEvent.getStatusString()).thenReturn("status");
+        callback.accept(connectionEvent);
+    }
+
+    /** Records scheduled work instead of running it, so a test can step through the backoff. */
+    private static final class ManualScheduler {
+        final List<Long> delays = new java.util.ArrayList<>();
+        final java.util.ArrayDeque<Runnable> tasks = new java.util.ArrayDeque<>();
+        final java.util.concurrent.ScheduledExecutorService executor =
+                mock(java.util.concurrent.ScheduledExecutorService.class);
+
+        ManualScheduler() {
+            when(executor.schedule(any(Runnable.class), anyLong(), any())).thenAnswer(inv -> {
+                tasks.add(inv.getArgument(0));
+                delays.add(inv.getArgument(1));
+                return mock(java.util.concurrent.ScheduledFuture.class);
+            });
+        }
+
+        void runNext() {
+            tasks.poll().run();
+        }
+    }
 
     private ConnectionListener captureConnectionListener() throws Exception {
         ArgumentCaptor<ConnectionListener> cap = ArgumentCaptor.forClass(ConnectionListener.class);

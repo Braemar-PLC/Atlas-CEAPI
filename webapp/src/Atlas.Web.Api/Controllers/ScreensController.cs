@@ -92,7 +92,8 @@ public sealed class ScreensController : ControllerBase
 
     /// <summary>
     /// Every symbol the feed relay (CEAPI) should subscribe to, comma-separated, as plain text - the exact format
-    /// of CEAPI's SYMBOLS setting. CEAPI/run-live.ps1 reads this so the list is never typed by hand - without a
+    /// of CEAPI's SYMBOLS setting. The deployed CEAPI fetches it (SYMBOLS_URL) on every ICE connect and CEAPI/run-live.ps1
+    /// reads it, so the list is never typed by hand - without a
     /// browser or a sign-in, which is why this one endpoint stays open at the API level.
     /// </summary>
     [HttpGet("symbols")]

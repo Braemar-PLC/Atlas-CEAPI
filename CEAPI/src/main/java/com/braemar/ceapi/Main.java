@@ -2,6 +2,7 @@
 package com.braemar.ceapi;
 
 import com.braemar.ceapi.config.Settings;
+import com.braemar.ceapi.config.SymbolListLoader;
 import com.braemar.ceapi.ice.IceConnectionManager;
 import com.braemar.ceapi.ice.IceQuoteListener;
 import com.braemar.ceapi.ice.QuoteReceivedEvent;
@@ -15,7 +16,7 @@ import com.esignal.jstandard.event.SymbolEvent;
 import com.esignal.jstandard.managers.ResourceManagerFactory;
 import io.github.cdimascio.dotenv.Dotenv;
 
-import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 public class Main {
@@ -30,7 +31,6 @@ public class Main {
 
         Settings settings = Settings.fromEnv();
         ResourceManagerFactory factory = ResourceManagerFactory.getFactory();
-        List<String> symbols = List.of(settings.symbols.split(","));
 
         var commandEvents = new Observable<String>();
         var clientConnectedEvents = new Observable<ClientConnectedEvent>();
@@ -41,7 +41,11 @@ public class Main {
 
         // 4) ICE listeners & manager (no connect here)
         var iceQuoteListener = new IceQuoteListener(quoteEventEmitter, statusEventEmitter, symbolEventEmitter);
-        var iceManager = new IceConnectionManager(settings, factory, iceQuoteListener, symbols);
+        var scheduler = IceConnectionManager.defaultScheduler();
+        var iceManager = new IceConnectionManager(settings, factory, iceQuoteListener,
+                new SymbolListLoader(settings), scheduler);
+        // Contracts roll and option chains follow their futures during the day; pick up the changes.
+        scheduler.scheduleAtFixedRate(iceManager::refreshSymbols, 1, 1, TimeUnit.HOURS);
 
         // 5) WebSocket server (binds the port; receives client/command events)
         var wsServer = new WebSocketServer(

@@ -79,6 +79,29 @@ class SettingsTest {
     }
 
     @Test
+    void fromEnv_withASymbolsUrl_doesNotNeedSymbols() {
+        env.set("ICE_HOST", "myhost")
+           .set("ICE_USERNAME", "user")
+           .set("ICE_PASSWORD", "pass")
+           .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols");
+
+        Settings s = Settings.fromEnv();
+
+        assertEquals("https://atlas.example/api/screens/symbols", s.symbolsUrl);
+        assertNull(s.symbols);
+    }
+
+    @Test
+    void fromEnv_withoutASymbolsUrl_leavesItNull() {
+        env.set("ICE_HOST", "myhost")
+           .set("ICE_USERNAME", "user")
+           .set("ICE_PASSWORD", "pass")
+           .set("SYMBOLS", "SYM1");
+
+        assertNull(Settings.fromEnv().symbolsUrl);
+    }
+
+    @Test
     void fromEnv_throwsWithDescriptiveMessage() {
         IllegalStateException ex = assertThrows(
             IllegalStateException.class, Settings::fromEnv

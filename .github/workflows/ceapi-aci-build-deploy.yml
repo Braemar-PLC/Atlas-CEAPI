@@ -27,6 +27,8 @@ jobs:
       ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
       ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
       ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
+      # CEAPI asks the Web App for its symbol list on every ICE connect; ICE_SYMBOLS is the fallback.
+      SYMBOLS_URL: 'https://atlas-webapp-braemar.azurewebsites.net/api/screens/symbols'
 
     steps:
       - name: Checkout repository
@@ -85,9 +87,9 @@ jobs:
       - name: Build CEAPI distribution
         shell: pwsh
         run: |
-          gradle --project-dir CEAPI --no-daemon installDist -x test
+          gradle --project-dir CEAPI --no-daemon test installDist
           if ($LASTEXITCODE -ne 0) {
-            throw "Gradle installDist failed with exit code $LASTEXITCODE"
+            throw "Gradle test/installDist failed with exit code $LASTEXITCODE"
           }
 
           $runtimeFiles = @(
@@ -129,7 +131,8 @@ jobs:
               iceHost="$env:ICE_HOST" `
               iceUsername="$env:ICE_USERNAME" `
               icePassword="$env:ICE_PASSWORD" `
-              symbols="$env:ICE_SYMBOLS"
+              symbols="$env:ICE_SYMBOLS" `
+              symbolsUrl="$env:SYMBOLS_URL"
 
       - name: Deploy ACI container group
         id: deploy
@@ -148,7 +151,8 @@ jobs:
               iceHost="$env:ICE_HOST" `
               iceUsername="$env:ICE_USERNAME" `
               icePassword="$env:ICE_PASSWORD" `
-              symbols="$env:ICE_SYMBOLS"
+              symbols="$env:ICE_SYMBOLS" `
+              symbolsUrl="$env:SYMBOLS_URL"
 
       - name: Show CEAPI container state
         if: ${{ success() }}

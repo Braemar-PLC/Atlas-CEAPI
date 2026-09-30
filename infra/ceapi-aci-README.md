@@ -25,8 +25,7 @@ Set these in the GitHub repo before the first run:
 - `ICE_HOST`
 - `ICE_USERNAME`
 - `ICE_PASSWORD`
-- `ICE_SYMBOLS`
-
+- `ICE_SYMBOLS` (fallback only: the container is given `SYMBOLS_URL`, set in the workflow, and fetches the live list from the Web App)
 Never check these secrets into the repository.
 
 ## Local build check
