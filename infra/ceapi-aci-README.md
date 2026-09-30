@@ -38,10 +38,10 @@ Set these in the GitHub repo before the first run:
 Never check these secrets into the repository.
 
 The complete symbol list is not stored in a GitHub secret: the current list is larger than GitHub's 48 KB secret
-limit. The workflow downloads `/api/screens/symbols`, rejects the deployment if it contains fewer than 3,800 unique
-symbols, and embeds it in the image as `C:\app\config\symbols.csv`. `SYMBOLS_URL` remains the live source so contract
-rolls are picked up without rebuilding; the embedded file prevents a transient HTTP failure from reducing CEAPI to
-an old partial list.
+limit. The repository contains the non-secret fallback at `CEAPI/config/symbols.csv`; the workflow rejects deployment
+if it contains fewer than 3,800 unique symbols and embeds it as `C:\app\config\symbols.csv`. `SYMBOLS_URL` remains the
+live source so contract rolls are picked up without rebuilding. Deployment also allowlists the CEAPI NAT Gateway's
+static public IP on the Web App without removing its existing access restrictions.
 
 ## Local build check
 

@@ -34,7 +34,7 @@ resync
 | ICE_USERNAME  | Yes      | —         | ICE username                     |
 | ICE_PASSWORD  | Yes      | —         | ICE password                     |
 | SYMBOLS       | Yes, unless SYMBOLS_URL is set | — | Comma-separated fallback list for local runs. The Azure deployment uses `SYMBOLS_FILE` instead because the complete list exceeds GitHub's secret-size limit |
-| SYMBOLS_FILE  | No       | —         | Path to a comma-separated fallback list. Takes precedence over `SYMBOLS`; Azure embeds the validated current list at `C:\app\config\symbols.csv` |
+| SYMBOLS_FILE  | No       | —         | Path to a comma-separated fallback list. Takes precedence over `SYMBOLS`; Azure includes the validated list at `C:\app\config\symbols.csv` |
 | SYMBOLS_URL   | No       | —         | Web API address listing the symbols the screens need (`/api/screens/symbols`). Fetched on every ICE connect and re-checked hourly, so the list follows contract rolls and option chains without a restart |
 | WS_PORT       | No       | 9001      | WebSocket server port            |
 

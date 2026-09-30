@@ -64,6 +64,7 @@ jobs:
             'CEAPI/lib/ICEesig-jstandard-dbcjna-1.31.1.1.jar',
             'CEAPI/lib/jna-3.5.2.jar',
             'CEAPI/lib/platform-3.5.2.jar',
+            'CEAPI/config/symbols.csv',
             'CEAPI/bin/PortLib_64VC17.dll',
             'CEAPI/bin/dbcapi_64VC17.dll'
           )
@@ -72,6 +73,13 @@ jobs:
               throw "Required build artifact missing: $path"
             }
           }
+
+          $symbolsCsv = [IO.File]::ReadAllText((Resolve-Path 'CEAPI/config/symbols.csv'))
+          $symbols = @($symbolsCsv -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+          if ($symbols.Count -lt 3800) {
+            throw "The embedded symbol fallback contains only $($symbols.Count) unique symbols; refusing to deploy."
+          }
+          Write-Host "Validated $($symbols.Count) unique fallback symbols."
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -103,33 +111,6 @@ jobs:
               throw "Required CEAPI runtime artifact missing after Gradle build: $path"
             }
           }
-
-      - name: Capture complete fallback symbol list
-        shell: pwsh
-        run: |
-          $outputPath = 'CEAPI/build/install/ceapi/config/symbols.csv'
-          $symbolsCsv = $null
-          for ($attempt = 1; $attempt -le 6; $attempt++) {
-            try {
-              $symbolsCsv = (Invoke-WebRequest -Uri "$env:SYMBOLS_URL" -UseBasicParsing -TimeoutSec 30).Content
-              break
-            }
-            catch {
-              if ($attempt -eq 6) {
-                throw "Could not download the CEAPI symbol fallback after $attempt attempts: $($_.Exception.Message)"
-              }
-              Start-Sleep -Seconds ([Math]::Min(5 * $attempt, 20))
-            }
-          }
-
-          $symbols = @($symbolsCsv -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
-          if ($symbols.Count -lt 3800) {
-            throw "The symbol endpoint returned only $($symbols.Count) unique symbols; refusing to deploy an incomplete fallback."
-          }
-
-          New-Item -ItemType Directory -Path (Split-Path $outputPath) -Force | Out-Null
-          [IO.File]::WriteAllText($outputPath, ($symbols -join ','), [Text.UTF8Encoding]::new($false))
-          Write-Host "Embedded $($symbols.Count) unique symbols in the CEAPI image fallback."
 
       - name: Build and push CEAPI Windows image with ACR Tasks
         shell: pwsh
@@ -210,6 +191,27 @@ jobs:
             --resource-group "$env:RESOURCE_GROUP" `
             --name "$env:APPSERVICE_NAME" `
             --settings "Ice__Endpoint=$privateIp"
+
+      - name: Allow CEAPI NAT egress to refresh symbols
+        shell: pwsh
+        run: |
+          $natIp = az network public-ip show `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --name 'atlas-ceapi-nat-ip' `
+            --query ipAddress `
+            --output tsv
+          if ([string]::IsNullOrWhiteSpace($natIp)) {
+            throw 'The CEAPI NAT Gateway public IP address was not found.'
+          }
+
+          az webapp config access-restriction add `
+            --resource-group "$env:RESOURCE_GROUP" `
+            --name "$env:APPSERVICE_NAME" `
+            --rule-name 'Allow-CEAPI-NAT' `
+            --action Allow `
+            --ip-address "$natIp/32" `
+            --priority 200 `
+            --only-show-errors
 
       - name: Show CEAPI container state
         if: ${{ success() }}
