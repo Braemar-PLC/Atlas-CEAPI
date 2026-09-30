@@ -94,7 +94,12 @@ public class WebSocketServer extends org.java_websocket.server.WebSocketServer
 
     /** Returns true if at least one client is currently connected and open. */
     public boolean hasClient() {
-        return clients.stream().anyMatch(WebSocket::isOpen);
+        return openClientCount() > 0;
+    }
+
+    /** How many clients are connected and open. */
+    public int openClientCount() {
+        return (int) clients.stream().filter(WebSocket::isOpen).count();
     }
 
     // --- Java-WebSocket callbacks ---

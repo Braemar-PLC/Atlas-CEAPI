@@ -210,7 +210,7 @@ class IceConnectionManagerTest {
 
         fire(first::onDisconnected);
 
-        org.junit.jupiter.api.Assertions.assertEquals(List.of(5L), scheduler.delays);
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(IceConnectionManager.BACKOFF_SECONDS[0]), scheduler.delays);
         QuoteManager second = mock(QuoteManager.class);
         when(factory.createQuoteManager()).thenReturn(second);
         scheduler.runNext();
@@ -232,7 +232,11 @@ class IceConnectionManagerTest {
         scheduler.runNext();
         scheduler.runNext();
 
-        org.junit.jupiter.api.Assertions.assertEquals(List.of(5L, 10L, 30L), scheduler.delays);
+        org.junit.jupiter.api.Assertions.assertEquals(
+                List.of(IceConnectionManager.BACKOFF_SECONDS[0],
+                        IceConnectionManager.BACKOFF_SECONDS[1],
+                        IceConnectionManager.BACKOFF_SECONDS[2]),
+                scheduler.delays);
     }
 
     @Test
