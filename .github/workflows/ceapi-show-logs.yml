@@ -53,8 +53,16 @@ jobs:
             --workspace "$WORKSPACE_ID" \
             --analytics-query "search * | distinct \$table | take 50" \
             --output table || true
-          echo "--- ContainerInstanceLog_CL (last 30 minutes only, oldest first) ---"
+          echo "--- ContainerInstanceLog_CL (latest 150 lines, per-symbol subscribe lines left out, oldest first) ---"
           az monitor log-analytics query \
             --workspace "$WORKSPACE_ID" \
-            --analytics-query "ContainerInstanceLog_CL | where TimeGenerated > ago(30m) | order by TimeGenerated asc | project TimeGenerated, Message" \
+            --analytics-query "ContainerInstanceLog_CL | where Message !contains 'Subscribed: ' | top 150 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
             --output tsv || true
+
+      - name: Probe the relay port from outside
+        shell: bash
+        run: |
+          FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$CEAPI_CONTAINER_GROUP" --query ipAddress.fqdn -o tsv)
+          PORT=$(az container show --resource-group "$RESOURCE_GROUP" --name "$CEAPI_CONTAINER_GROUP" --query "ipAddress.ports[0].port" -o tsv)
+          echo "Relay: $FQDN:$PORT"
+          if timeout 5 bash -c "</dev/tcp/$FQDN/$PORT"; then echo "Relay port is OPEN"; else echo "Relay port is CLOSED or unreachable"; fi
