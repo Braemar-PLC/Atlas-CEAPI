@@ -123,6 +123,7 @@ jobs:
         run: |
           $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
           az deployment group what-if `
+            --name "ceapi-aci-whatif-${{ github.run_id }}" `
             --resource-group "$env:RESOURCE_GROUP" `
             --template-file infra/ceapi-aci.bicep `
             --parameters `
@@ -144,6 +145,7 @@ jobs:
         run: |
           $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
           az deployment group create `
+            --name "ceapi-aci-${{ github.run_id }}" `
             --resource-group "$env:RESOURCE_GROUP" `
             --template-file infra/ceapi-aci.bicep `
             --parameters `
