@@ -14,7 +14,8 @@ namespace Atlas.Web.Api.Controllers;
 
 /// <summary>
 /// The desk screens: which rows each one shows today, and a price stream for exactly those rows.
-/// Known screens: ttf-flat, ttf-spreads, nbp, coal-api2, coal-newcastle, coal-spreads.
+/// Known screens: ttf-flat, ttf-spreads, nbp, coal-api2, coal-newcastle, coal-spreads, and the option chains
+/// xcom-ttf, xcom-eua, xcom-wti, xcom-brent.
 /// </summary>
 [ApiController]
 [Route("api/screens")]

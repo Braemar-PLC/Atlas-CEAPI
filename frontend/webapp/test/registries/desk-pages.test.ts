@@ -1,10 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { CoalDeskKey, DeskPages, NaturalGasDeskKey, pagesOf } from "@/application/registries/nav-tabs";
+import {
+  CoalDeskKey, CrossCommoditiesDeskKey, DeskPages, NaturalGasDeskKey, pagesOf,
+} from "@/application/registries/nav-tabs";
 
 describe("desk pages", () => {
   it("gives the Coal desk its three screens, in WebICE's order", () => {
     expect(pagesOf(CoalDeskKey).map(p => p.label)).toEqual(["API2 (Rotterdam)", "Newcastle", "Spreads"]);
     expect(pagesOf(CoalDeskKey).map(p => p.to)).toEqual(["/coal/api2", "/coal/newcastle", "/coal/spreads"]);
+  });
+
+  it("gives the Cross-Commodities desk one option chain per product, in the order the desk gave, then the calculator", () => {
+    expect(pagesOf(CrossCommoditiesDeskKey).map(p => p.label)).toEqual(["TTF", "EUA", "WTI", "Brent", "Calculator"]);
+    expect(pagesOf(CrossCommoditiesDeskKey).map(p => p.to)).toEqual([
+      "/xcom/ttf", "/xcom/eua", "/xcom/wti", "/xcom/brent", "/xcom/calculator",
+    ]);
   });
 
   it("still gives the Natural Gas desk its three", () => {
@@ -17,7 +26,7 @@ describe("desk pages", () => {
   });
 
   it("keys the pages by the desk keys the API seeds", () => {
-    expect(Object.keys(DeskPages).sort()).toEqual(["coal", "natural-gas"]);
+    expect(Object.keys(DeskPages).sort()).toEqual(["coal", "cross-commodities", "natural-gas"]);
   });
 
   it("gives every page across every desk its own address", () => {

@@ -13,4 +13,7 @@ public interface IInstrumentCatalogue
 
     /// <summary>Spreads the exchange quotes as contracts of their own.</summary>
     IReadOnlyList<SpreadInstrument> Spreads { get; }
+
+    /// <summary>Monthly options on the listed futures, for the products the options desk prices.</summary>
+    IReadOnlyList<OptionInstrument> Options { get; }
 }

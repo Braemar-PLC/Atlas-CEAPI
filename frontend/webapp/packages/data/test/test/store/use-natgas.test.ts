@@ -137,3 +137,34 @@ describe("useNatGas store", () => {
   });
 
 });
+describe("useNatGas patchMany", () => {
+  it("applies a batch of deltas as one state change, ticks included", () => {
+    let changes = 0;
+    const stop = useNatGas.subscribe(() => { changes++; });
+
+    useNatGas.getState().patchMany([
+      { instrument: "TTF", tenor: "Oct-26", last: 77.85 },
+      { instrument: "NBP", tenor: "Oct-26", bid: 100.5 },
+      { instrument: "TTF", tenor: "Oct-26", last: 77.9 }, // the same strip again, later in the batch
+    ]);
+    stop();
+
+    expect(changes).toBe(1);
+    const ttf = useNatGas.getState().curves.TTF!["Oct-26"]!;
+    expect(ttf.last).toBe(77.9);
+    expect(ttf.tick).toBe("up");
+    expect(useNatGas.getState().curves.NBP!["Oct-26"]!.bid).toBe(100.5);
+  });
+
+  it("changes nothing for an empty batch or one with nothing to apply", () => {
+    let changes = 0;
+    const stop = useNatGas.subscribe(() => { changes++; });
+
+    useNatGas.getState().patchMany([]);
+    useNatGas.getState().patchMany([{ instrument: "NBP" }, { tenor: "X" }]);
+    stop();
+
+    expect(changes).toBe(0);
+    expect(useNatGas.getState().curves).toEqual({});
+  });
+});

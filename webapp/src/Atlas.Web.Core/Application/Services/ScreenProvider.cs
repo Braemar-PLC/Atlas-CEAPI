@@ -5,12 +5,13 @@ using Atlas.Web.Core.Domain.Models;
 namespace Atlas.Web.Core.Application.Services;
 
 /// <summary>
-/// Gives <see cref="ScreenBuilder"/> today's date. The screens are rebuilt on every call, which is cheap,
-/// so a strip that expired last night is gone from the next request without anything being restarted.
-/// "Today" is the UTC date; the hour's difference from London time in summer does not matter for a roll
-/// that happens overnight.
+/// Gives <see cref="ScreenBuilder"/> and <see cref="OptionChainBuilder"/> the day to build for. The screens are
+/// rebuilt on every call, which is cheap, so a contract that has just expired is gone from the next request
+/// without anything being restarted, and an option chain follows the future's price the same way. The day comes
+/// from <see cref="RollClock"/>: the futures roll at 18:00 Amsterdam on their last trading day and the options at
+/// 14:00 on theirs, as ICE and the desk's Edgeview do - two clocks, never derived from each other.
 /// </summary>
-public sealed class ScreenProvider : IScreenProvider
+public sealed class ScreenProvider : IScreenProvider, IOptionMatrixProvider
 {
     /// <summary>
     /// How far ahead <see cref="SymbolsToSubscribe"/> looks. Gas months expire once a month, so 45 days always
@@ -20,30 +21,41 @@ public sealed class ScreenProvider : IScreenProvider
     public static readonly TimeSpan LookAhead = TimeSpan.FromDays(45);
 
     private readonly ScreenBuilder _builder;
+    private readonly OptionChainBuilder _chains;
     private readonly TimeProvider _clock;
 
-    public ScreenProvider(ScreenBuilder builder, TimeProvider clock)
+    public ScreenProvider(ScreenBuilder builder, OptionChainBuilder chains, TimeProvider clock)
     {
         _builder = builder;
+        _chains = chains;
         _clock = clock;
     }
 
-    public IReadOnlyList<Screen> GetScreens() => _builder.Build(Today());
+    /// <summary>The flat and spread screens, then the option chains.</summary>
+    public IReadOnlyList<Screen> GetScreens()
+    {
+        var now = _clock.GetUtcNow();
+        return _builder.Build(RollClock.FuturesDay(now)).Concat(_chains.Build(RollClock.OptionsDay(now))).ToList();
+    }
 
     public Screen? Find(string key) =>
         GetScreens().FirstOrDefault(s => string.Equals(s.Key, key, StringComparison.OrdinalIgnoreCase));
 
+    OptionMatrix? IOptionMatrixProvider.Find(string product) => _chains.Matrix(product, RollClock.OptionsDay(_clock.GetUtcNow()));
+
     public IReadOnlyList<string> SymbolsToSubscribe()
     {
-        var today = Today();
-        var later = today.AddDays((int)LookAhead.TotalDays);
+        var now = _clock.GetUtcNow();
+        var futuresDay = RollClock.FuturesDay(now);
+        var optionsDay = RollClock.OptionsDay(now);
+        var lookAhead = (int)LookAhead.TotalDays;
 
-        return _builder.Build(today)
-            .Concat(_builder.Build(later))
+        return _builder.Build(futuresDay)
+            .Concat(_builder.Build(futuresDay.AddDays(lookAhead)))
             .SelectMany(s => s.Symbols)
+            .Concat(_chains.SymbolsToSubscribe(optionsDay))
+            .Concat(_chains.SymbolsToSubscribe(optionsDay.AddDays(lookAhead)))
             .Distinct()
             .ToList();
     }
-
-    private DateOnly Today() => DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
 }

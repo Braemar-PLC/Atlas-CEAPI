@@ -9,6 +9,12 @@ describe("commodityOf", () => {
     expect(commodityOf("ARA")).toBe("COAL");
     expect(commodityOf("Newcastle")).toBe("COAL");
   });
+
+  it("calls EUA carbon and Brent and WTI oil - the futures the options desk prices off", () => {
+    expect(commodityOf("EUA")).toBe("CARBON");
+    expect(commodityOf("Brent")).toBe("OIL");
+    expect(commodityOf("WTI")).toBe("OIL");
+  });
 });
 
 describe("InstrumentSchema", () => {
@@ -16,6 +22,13 @@ describe("InstrumentSchema", () => {
     expect(Value.Check(InstrumentSchema, "ARA")).toBe(true);
     expect(Value.Check(InstrumentSchema, "Newcastle")).toBe(true);
     expect(Value.Check(InstrumentSchema, "API2")).toBe(false);
+  });
+
+  it("knows the options desk's products by the names the API's catalogue uses", () => {
+    for (const hub of ["EUA", "Brent", "WTI"]) {
+      expect(Value.Check(InstrumentSchema, hub)).toBe(true);
+    }
+    expect(Value.Check(InstrumentSchema, "BRENT")).toBe(false);
   });
 });
 

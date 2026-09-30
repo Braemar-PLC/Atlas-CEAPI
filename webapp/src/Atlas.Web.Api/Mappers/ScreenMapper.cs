@@ -1,3 +1,4 @@
+using System.Globalization;
 using Atlas.Web.Api.Models.Outbound;
 using Atlas.Web.Core.Domain.Enumeration;
 using Atlas.Web.Core.Domain.Models;
@@ -21,11 +22,25 @@ public static class ScreenMapper
             row.Source == RowSource.Quoted ? "quoted" : "computed",
             row.Symbol,
             ToDto(row.Near),
-            ToDto(row.Far));
+            ToDto(row.Far),
+            ToDto(row.Option));
     }
 
     private static ScreenLegDto? ToDto(ScreenLeg? leg)
     {
         return leg is null ? null : new(leg.Label, leg.Symbol);
+    }
+
+    private static ScreenOptionDto? ToDto(ScreenOption? option)
+    {
+        if (option is null)
+        {
+            return null;
+        }
+        return new(
+            option.ExpiryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            option.UnderlyingSymbol,
+            option.Strike,
+            option.Right == OptionRight.Call ? "C" : "P");
     }
 }

@@ -19,6 +19,11 @@ import { Route as AboutRouteImport } from './about'
 import { Route as TradesRouteRouteImport } from './trades/route'
 import { Route as IndexRouteImport } from './index'
 import { Route as DesksIndexRouteImport } from './desks.index'
+import { Route as XcomWtiRouteImport } from './xcom.wti'
+import { Route as XcomTtfRouteImport } from './xcom.ttf'
+import { Route as XcomEuaRouteImport } from './xcom.eua'
+import { Route as XcomCalculatorRouteImport } from './xcom.calculator'
+import { Route as XcomBrentRouteImport } from './xcom.brent'
 import { Route as DesksKeyRouteImport } from './desks.$key'
 import { Route as CoalSpreadsRouteImport } from './coal.spreads'
 import { Route as CoalNewcastleRouteImport } from './coal.newcastle'
@@ -75,6 +80,31 @@ const DesksIndexRoute = DesksIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DesksRoute,
 } as any)
+const XcomWtiRoute = XcomWtiRouteImport.update({
+  id: '/xcom/wti',
+  path: '/xcom/wti',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const XcomTtfRoute = XcomTtfRouteImport.update({
+  id: '/xcom/ttf',
+  path: '/xcom/ttf',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const XcomEuaRoute = XcomEuaRouteImport.update({
+  id: '/xcom/eua',
+  path: '/xcom/eua',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const XcomCalculatorRoute = XcomCalculatorRouteImport.update({
+  id: '/xcom/calculator',
+  path: '/xcom/calculator',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const XcomBrentRoute = XcomBrentRouteImport.update({
+  id: '/xcom/brent',
+  path: '/xcom/brent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DesksKeyRoute = DesksKeyRouteImport.update({
   id: '/$key',
   path: '/$key',
@@ -116,6 +146,11 @@ export interface FileRoutesByFullPath {
   '/coal/newcastle': typeof CoalNewcastleRoute
   '/coal/spreads': typeof CoalSpreadsRoute
   '/desks/$key': typeof DesksKeyRoute
+  '/xcom/brent': typeof XcomBrentRoute
+  '/xcom/calculator': typeof XcomCalculatorRoute
+  '/xcom/eua': typeof XcomEuaRoute
+  '/xcom/ttf': typeof XcomTtfRoute
+  '/xcom/wti': typeof XcomWtiRoute
   '/desks/': typeof DesksIndexRoute
 }
 export interface FileRoutesByTo {
@@ -132,6 +167,11 @@ export interface FileRoutesByTo {
   '/coal/newcastle': typeof CoalNewcastleRoute
   '/coal/spreads': typeof CoalSpreadsRoute
   '/desks/$key': typeof DesksKeyRoute
+  '/xcom/brent': typeof XcomBrentRoute
+  '/xcom/calculator': typeof XcomCalculatorRoute
+  '/xcom/eua': typeof XcomEuaRoute
+  '/xcom/ttf': typeof XcomTtfRoute
+  '/xcom/wti': typeof XcomWtiRoute
   '/desks': typeof DesksIndexRoute
 }
 export interface FileRoutesById {
@@ -150,6 +190,11 @@ export interface FileRoutesById {
   '/coal/newcastle': typeof CoalNewcastleRoute
   '/coal/spreads': typeof CoalSpreadsRoute
   '/desks/$key': typeof DesksKeyRoute
+  '/xcom/brent': typeof XcomBrentRoute
+  '/xcom/calculator': typeof XcomCalculatorRoute
+  '/xcom/eua': typeof XcomEuaRoute
+  '/xcom/ttf': typeof XcomTtfRoute
+  '/xcom/wti': typeof XcomWtiRoute
   '/desks/': typeof DesksIndexRoute
 }
 export interface FileRouteTypes {
@@ -169,6 +214,11 @@ export interface FileRouteTypes {
     | '/coal/newcastle'
     | '/coal/spreads'
     | '/desks/$key'
+    | '/xcom/brent'
+    | '/xcom/calculator'
+    | '/xcom/eua'
+    | '/xcom/ttf'
+    | '/xcom/wti'
     | '/desks/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -185,6 +235,11 @@ export interface FileRouteTypes {
     | '/coal/newcastle'
     | '/coal/spreads'
     | '/desks/$key'
+    | '/xcom/brent'
+    | '/xcom/calculator'
+    | '/xcom/eua'
+    | '/xcom/ttf'
+    | '/xcom/wti'
     | '/desks'
   id:
     | '__root__'
@@ -202,6 +257,11 @@ export interface FileRouteTypes {
     | '/coal/newcastle'
     | '/coal/spreads'
     | '/desks/$key'
+    | '/xcom/brent'
+    | '/xcom/calculator'
+    | '/xcom/eua'
+    | '/xcom/ttf'
+    | '/xcom/wti'
     | '/desks/'
   fileRoutesById: FileRoutesById
 }
@@ -218,6 +278,11 @@ export interface RootRouteChildren {
   CoalApi2Route: typeof CoalApi2Route
   CoalNewcastleRoute: typeof CoalNewcastleRoute
   CoalSpreadsRoute: typeof CoalSpreadsRoute
+  XcomBrentRoute: typeof XcomBrentRoute
+  XcomCalculatorRoute: typeof XcomCalculatorRoute
+  XcomEuaRoute: typeof XcomEuaRoute
+  XcomTtfRoute: typeof XcomTtfRoute
+  XcomWtiRoute: typeof XcomWtiRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -291,6 +356,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/desks/'
       preLoaderRoute: typeof DesksIndexRouteImport
       parentRoute: typeof DesksRoute
+    }
+    '/xcom/wti': {
+      id: '/xcom/wti'
+      path: '/xcom/wti'
+      fullPath: '/xcom/wti'
+      preLoaderRoute: typeof XcomWtiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/xcom/ttf': {
+      id: '/xcom/ttf'
+      path: '/xcom/ttf'
+      fullPath: '/xcom/ttf'
+      preLoaderRoute: typeof XcomTtfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/xcom/eua': {
+      id: '/xcom/eua'
+      path: '/xcom/eua'
+      fullPath: '/xcom/eua'
+      preLoaderRoute: typeof XcomEuaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/xcom/calculator': {
+      id: '/xcom/calculator'
+      path: '/xcom/calculator'
+      fullPath: '/xcom/calculator'
+      preLoaderRoute: typeof XcomCalculatorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/xcom/brent': {
+      id: '/xcom/brent'
+      path: '/xcom/brent'
+      fullPath: '/xcom/brent'
+      preLoaderRoute: typeof XcomBrentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/desks/$key': {
       id: '/desks/$key'
@@ -367,6 +467,11 @@ const rootRouteChildren: RootRouteChildren = {
   CoalApi2Route: CoalApi2Route,
   CoalNewcastleRoute: CoalNewcastleRoute,
   CoalSpreadsRoute: CoalSpreadsRoute,
+  XcomBrentRoute: XcomBrentRoute,
+  XcomCalculatorRoute: XcomCalculatorRoute,
+  XcomEuaRoute: XcomEuaRoute,
+  XcomTtfRoute: XcomTtfRoute,
+  XcomWtiRoute: XcomWtiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -10,10 +10,12 @@ export const CommoditySchema = Type.Union([
   Type.Literal("POWER"),
   Type.Literal("OIL"),
   Type.Literal("COAL"),
+  Type.Literal("CARBON"),
 ]);
 
-// The hubs, spelt as ICE spells them (field 951 and the catalogue): the gas hubs and, since 2026-09-24, the two
-// coal hubs - ARA (Rotterdam, the API2 contract) and Newcastle.
+// The hubs, spelt as ICE spells them (field 951 and the catalogue): the gas hubs; since 2026-09-24 the two coal
+// hubs - ARA (Rotterdam, the API2 contract) and Newcastle; and since 2026-09-25 the futures the options desk
+// prices off - EUA (carbon), Brent and WTI (oil) - whose option chains file under the same names.
 export const InstrumentSchema = Type.Union([
   Type.Literal("NBP"),
   Type.Literal("TTF"),
@@ -22,6 +24,9 @@ export const InstrumentSchema = Type.Union([
   Type.Literal("CEGH"),
   Type.Literal("ARA"),
   Type.Literal("Newcastle"),
+  Type.Literal("EUA"),
+  Type.Literal("Brent"),
+  Type.Literal("WTI"),
 ]);
 
 export const TickSchema = Type.Union([
@@ -89,6 +94,9 @@ export const CommodityByHub: Record<Instrument, Commodity> = {
   CEGH: "GAS",
   ARA: "COAL",
   Newcastle: "COAL",
+  EUA: "CARBON",
+  Brent: "OIL",
+  WTI: "OIL",
 };
 
 export const commodityOf = (hub: Instrument): Commodity => CommodityByHub[hub];

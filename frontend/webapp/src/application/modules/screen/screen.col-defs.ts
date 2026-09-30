@@ -1,4 +1,4 @@
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, ValueFormatterParams } from "ag-grid-community";
 import type { ScreenFieldKey, ScreenView } from "@/application/registries/screen-views";
 
 /**
@@ -34,6 +34,12 @@ export function buildScreenColumnDefs(view: ScreenView): ColDef[] {
   const centred: ColDef = { headerClass: "ice-centred-header", cellClass: "ice-centred" };
   const price: ColDef = { ...centred, valueFormatter: num(view.priceDecimals) };
   const quantity: ColDef = { ...centred, valueFormatter: num(0) };
+  // A volume of 0 means nothing has traded, and the desk reads a blank cell faster than a column of zeros
+  // (Marc Jarvis, 25 Sep 2026). Bid and offer sizes keep their 0: whether those should go blank is not decided.
+  const traded: ColDef = {
+    ...centred,
+    valueFormatter: (p: ValueFormatterParams) => (p.value == null || Number(p.value) === 0 ? "" : Number(p.value).toFixed(0)),
+  };
 
   const bar = (colId: string, cellClass: string): ColDef => ({
     colId,
@@ -76,8 +82,8 @@ export function buildScreenColumnDefs(view: ScreenView): ColDef[] {
     high:        { field: "high",        headerName: "High",      initialFlex: 70, ...price },
     low:         { field: "low",         headerName: "Low",       initialFlex: 70, ...price },
     wap:         { field: "wap",         headerName: "WAP",       initialFlex: 65, ...price },
-    volume:      { field: "volume",      headerName: "Volume",    initialFlex: 50, ...quantity },
-    blockVolume: { field: "blockVolume", headerName: "Block Vol", initialFlex: 55, ...quantity },
+    volume:      { field: "volume",      headerName: "Volume",    initialFlex: 50, ...traded },
+    blockVolume: { field: "blockVolume", headerName: "Block Vol", initialFlex: 55, ...traded },
     impliedBidSize: {
       field: "impliedBidSize",
       headerName: "B Qty",

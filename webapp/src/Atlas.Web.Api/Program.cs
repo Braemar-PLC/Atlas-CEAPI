@@ -77,13 +77,24 @@ static void ConfigureDI(IServiceCollection services)
     services.AddSingleton<IStreamEventFactory, StreamEventFactory>();
 
     // Desk screens: ICE's contract list + the desk's counts (the "Screens" section of appsettings.json) + today's
-    // date give the rows of each screen. Core knows nothing about configuration, so the pieces are joined here.
+    // date give the rows of each screen; the option chains also need the futures' prices, to pick the strikes
+    // around them. Core knows nothing about configuration, so the pieces are joined here.
     services.AddSingleton<IInstrumentCatalogue>(_ => JsonInstrumentCatalogue.LoadEmbedded());
-    services.AddSingleton<IScreenProvider>(sp => new ScreenProvider(
-        new ScreenBuilder(
-            sp.GetRequiredService<IInstrumentCatalogue>(),
-            sp.GetRequiredService<IOptions<ScreenRules>>().Value),
-        TimeProvider.System));
+    services.AddSingleton(sp => new Lazy<IPricingStore>(sp.GetRequiredService<IPricingStore>));
+    services.AddSingleton<IReferencePrices, IceReferencePrices>();
+    services.AddSingleton<ScreenProvider>(sp =>
+    {
+        var catalogue = sp.GetRequiredService<IInstrumentCatalogue>();
+        var rules = sp.GetRequiredService<IOptions<ScreenRules>>().Value;
+        return new ScreenProvider(
+            new ScreenBuilder(catalogue, rules),
+            new OptionChainBuilder(catalogue, rules, sp.GetRequiredService<IReferencePrices>()),
+            TimeProvider.System);
+    });
+    // The one provider answers both the screens and the calculator's matrix, so it is registered once and
+    // handed out under each port.
+    services.AddSingleton<IScreenProvider>(sp => sp.GetRequiredService<ScreenProvider>());
+    services.AddSingleton<IOptionMatrixProvider>(sp => sp.GetRequiredService<ScreenProvider>());
 }
 
 // Desks and members live in a SQLite file; where it is comes from the "Database" section. The Data project owns the
@@ -124,5 +135,13 @@ static void ConfigureOptions(IServiceCollection services, IConfiguration configu
         .Validate(o => o.Flat.Months > 0, $"{ScreenRules.Section}:Flat:Months is required")
         .Validate(o => o.Hubs.Values.All(h => h.Flat is null || h.Flat.Months > 0),
             $"{ScreenRules.Section}:Hubs:<hub>:Flat:Months must be above 0 when a hub has counts of its own")
+        // An option chain with no expiries, a band narrower than what is shown, or no price to centre on until the
+        // feed answers would be an empty or blank screen - refuse to start instead.
+        .Validate(o => o.Options.Values.All(r =>
+                r.Months + r.Quarters + r.Seasons + r.Cals > 0
+                && r.StrikesEachSide >= 0 && r.SubscribeStrikesEachSide >= r.StrikesEachSide
+                && r.StripStrikesEachSide >= 0 && r.SubscribeStripStrikesEachSide >= r.StripStrikesEachSide
+                && r.SeedPrice > 0),
+            $"{ScreenRules.Section}:Options:<product> needs at least one of Months/Quarters/Seasons/Cals above 0, the Subscribe bands at least as wide as the shown ones, and SeedPrice above 0")
         .ValidateOnStart();
 }

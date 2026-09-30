@@ -47,6 +47,15 @@ describe("gas screen columns (ICE's TTF flat price screen)", () => {
     expect(format(byField("bid"), undefined)).toBe("");
   });
 
+  it("leaves Volume and Block Vol blank when nothing has traded, rather than showing 0 (Marc Jarvis, 25 Sep 2026)", () => {
+    expect(format(byField("volume"), 0)).toBe("");
+    expect(format(byField("blockVolume"), 0)).toBe("");
+    expect(format(byField("volume"), 1405)).toBe("1405");
+    expect(format(byField("blockVolume"), 7831)).toBe("7831");
+    // A size of 0 on the bid or offer is a different question, not yet decided: it still shows.
+    expect(format(byField("bidSize"), 0)).toBe("0");
+  });
+
   it("colours the tick square on Last from the row's tick", () => {
     const rules = byField("last")!.cellClassRules as Record<string, (p: { data: unknown }) => boolean>;
 
@@ -134,6 +143,12 @@ describe("coal screen columns (WebICE's Coal tab)", () => {
     expect(format(byField("impliedAsk"), 98.4)).toBe("98.40");
     expect(format(byField("openInterest"), 60954)).toBe("60954");
     expect(format(buildScreenColumnDefs(GasView).find(c => c.field === "bid"), 77.85)).toBe("77.850");
+  });
+
+  it("leaves Volume and Block Vol blank at 0 on every screen, not only the gas ones", () => {
+    expect(format(byField("volume"), 0)).toBe("");
+    expect(format(byField("blockVolume"), 0)).toBe("");
+    expect(format(byField("openInterest"), 0)).toBe("0");
   });
 
   it("keeps Product, Hub and Strip left-aligned and centres every figure", () => {

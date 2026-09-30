@@ -3,6 +3,7 @@
 // address with no route. A desk not listed here has no pages yet and shows its own page under /desks/{key}.
 export const NaturalGasDeskKey = "natural-gas";
 export const CoalDeskKey = "coal";
+export const CrossCommoditiesDeskKey = "cross-commodities";
 
 // The admin area sits in the desk bar as a sixth button, for admins only. It is not a desk.
 export const AdminKey = "admin";
@@ -20,10 +21,21 @@ export const CoalPages = [
   { label: "Spreads", to: "/coal/spreads" },
 ] as const;
 
+// The Cross-Commodities desk ("Xcom") is the options desk: one option chain per product, in the order Sean Hays
+// gave on 2026-09-25 (docs/roadmap.md, section 12), then the calculator.
+export const CrossCommoditiesPages = [
+  { label: "TTF", to: "/xcom/ttf" },
+  { label: "EUA", to: "/xcom/eua" },
+  { label: "WTI", to: "/xcom/wti" },
+  { label: "Brent", to: "/xcom/brent" },
+  { label: "Calculator", to: "/xcom/calculator" },
+] as const;
+
 // By the desk keys the API seeds (Atlas.Web.Data).
 export const DeskPages = {
   [NaturalGasDeskKey]: NaturalGasPages,
   [CoalDeskKey]: CoalPages,
+  [CrossCommoditiesDeskKey]: CrossCommoditiesPages,
 } as const;
 
 export type DeskPage = (typeof DeskPages)[keyof typeof DeskPages][number];

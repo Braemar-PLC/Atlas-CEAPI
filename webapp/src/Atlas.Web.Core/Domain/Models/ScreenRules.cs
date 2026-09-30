@@ -1,3 +1,5 @@
+using Atlas.Web.Core.Domain.Enumeration;
+
 namespace Atlas.Web.Core.Domain.Models;
 
 /// <summary>
@@ -33,6 +35,13 @@ public sealed class ScreenRules
     /// a hub's own spread rules gets no spread rows at all.
     /// </summary>
     public Dictionary<string, HubRules> Hubs { get; set; } = new();
+
+    /// <summary>
+    /// The options screens, by product ("TTF", "EUA", "Brent", "WTI"). A product without an entry has no options
+    /// screen. Bound by key, so nothing here doubles up; the binder sorts the keys by name, so the order the
+    /// desk sees the products in is decided in the frontend, not here.
+    /// </summary>
+    public Dictionary<string, OptionRule> Options { get; set; } = new();
 
     public FlatRule FlatFor(string hub) =>
         Hubs.TryGetValue(hub, out var own) && own.Flat is not null ? own.Flat : Flat;
@@ -75,4 +84,43 @@ public sealed class PairRule
 {
     public int Gap { get; set; }
     public int Count { get; set; }
+}
+
+/// <summary>
+/// How much of an option chain to show. The expiries: the first <see cref="Months"/> monthly expiries still
+/// trading, then <see cref="Quarters"/>, <see cref="Seasons"/> and <see cref="Cals"/> strip expiries (the desk's
+/// 12, 8, 8 and 5 of 2026-09-25). The strikes at each: <see cref="StrikesEachSide"/> either side of the listed
+/// strike nearest the future's price for a month, <see cref="StripStrikesEachSide"/> for a strip - fewer, because
+/// the strips are there for their at-the-money vol rather than for trading a ladder. The feed relay is given the
+/// wider <see cref="SubscribeStrikesEachSide"/> and <see cref="SubscribeStripStrikesEachSide"/> instead, because it
+/// reads its list once at start-up and the future moves in the meantime. <see cref="SeedPrice"/> stands in for
+/// the future's price until one has arrived from the feed.
+/// </summary>
+public sealed class OptionRule
+{
+    public int Months { get; set; }
+    public int Quarters { get; set; }
+    public int Seasons { get; set; }
+    public int Cals { get; set; }
+    public int StrikesEachSide { get; set; }
+    public int SubscribeStrikesEachSide { get; set; }
+    public int StripStrikesEachSide { get; set; }
+    public int SubscribeStripStrikesEachSide { get; set; }
+    public decimal SeedPrice { get; set; }
+
+    public int ExpiriesFor(StripKind kind) => kind switch
+    {
+        StripKind.Month => Months,
+        StripKind.Quarter => Quarters,
+        StripKind.Season => Seasons,
+        _ => Cals,
+    };
+
+    public int StrikesFor(StripKind kind, bool subscribing) => (kind, subscribing) switch
+    {
+        (StripKind.Month, false) => StrikesEachSide,
+        (StripKind.Month, true) => SubscribeStrikesEachSide,
+        (_, false) => StripStrikesEachSide,
+        (_, true) => SubscribeStripStrikesEachSide,
+    };
 }

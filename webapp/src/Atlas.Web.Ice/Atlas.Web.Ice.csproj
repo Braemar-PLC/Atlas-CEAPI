@@ -9,8 +9,9 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
   </ItemGroup>
   <ItemGroup>
-    <!-- ICE's contract list, built into the assembly so it is found wherever the code runs. See JsonInstrumentCatalogue. -->
+    <!-- ICE's contract lists, built into the assembly so they are found wherever the code runs. See JsonInstrumentCatalogue. -->
     <EmbeddedResource Include="Catalogue\ice-instruments.json" />
+    <EmbeddedResource Include="Catalogue\ice-options.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Atlas.Web.Core\Atlas.Web.Core.csproj" />

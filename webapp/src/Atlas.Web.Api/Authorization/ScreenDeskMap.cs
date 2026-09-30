@@ -11,7 +11,14 @@ public static class ScreenDeskMap
             ["coal-api2"] = "coal",
             ["coal-newcastle"] = "coal",
             ["coal-spreads"] = "coal",
+            ["xcom-ttf"] = CrossCommodities,
+            ["xcom-eua"] = CrossCommodities,
+            ["xcom-wti"] = CrossCommodities,
+            ["xcom-brent"] = CrossCommodities,
         };
+
+    /// <summary>The options desk: its chains above and the calculator's matrices (OptionsController).</summary>
+    public const string CrossCommodities = "cross-commodities";
 
     public static bool TryGetDeskKey(string screenKey, out string deskKey) =>
         DeskByScreen.TryGetValue(screenKey, out deskKey!);

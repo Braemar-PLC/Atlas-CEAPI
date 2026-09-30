@@ -14,9 +14,35 @@ public sealed class FakeInstrumentCatalogue : IInstrumentCatalogue
 {
     private readonly List<Instrument> _outrights = new();
     private readonly List<SpreadInstrument> _spreads = new();
+    private readonly List<OptionInstrument> _options = new();
 
     public IReadOnlyList<Instrument> Outrights => _outrights;
     public IReadOnlyList<SpreadInstrument> Spreads => _spreads;
+    public IReadOnlyList<OptionInstrument> Options => _options;
+
+    /// <summary>
+    /// Lists a call and a put at each strike of a monthly option, on the given future, all expiring on the given
+    /// day. Symbols read "TTF:Nov26:80C".
+    /// </summary>
+    public FakeInstrumentCatalogue WithOptionChain(
+        string product, string expiry, DateOnly expiryDate, string underlyingSymbol, params decimal[] strikes) =>
+        WithOptionChain(product, StripKind.Month, expiry, expiryDate, underlyingSymbol, strikes);
+
+    /// <summary>The same for a strip option: a quarter, season or calendar year.</summary>
+    public FakeInstrumentCatalogue WithOptionChain(
+        string product, StripKind kind, string expiry, DateOnly expiryDate, string underlyingSymbol, params decimal[] strikes)
+    {
+        foreach (var strike in strikes)
+        {
+            foreach (var right in new[] { OptionRight.Call, OptionRight.Put })
+            {
+                var letter = right == OptionRight.Call ? "C" : "P";
+                _options.Add(new OptionInstrument(
+                    product, kind, expiry, expiryDate, underlyingSymbol, strike, right, $"{product}:{expiry}:{strike}{letter}"));
+            }
+        }
+        return this;
+    }
 
     /// <summary>Lists every month, quarter, season and calendar year that starts within the given range.</summary>
     public FakeInstrumentCatalogue WithStrips(string hub, DateOnly firstMonth, int months)

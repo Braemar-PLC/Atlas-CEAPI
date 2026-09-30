@@ -2,7 +2,7 @@
 
     Atlas.Web.Api ──► Atlas.Web.Ice ──► Atlas.Web.Core
           └────────────────────────────────►┘
-    Atlas.Web.Ice.MockFeed (stands in for CEAPI; not referenced by the others)
+    Atlas.Web.Data (desks and members in SQLite; referenced by Api)
 
 ## Atlas.Web.Core
 
@@ -28,7 +28,9 @@ The HTTP surface and composition root.
   contract, configuration and wiring the other projects together.
 - Holds no domain logic and knows nothing of ICE's format.
 
-## Atlas.Web.Ice.MockFeed
+## Atlas.Web.Data
 
-A development stand-in for CEAPI. Speaks CEAPI's wire format on its own port, so the API cannot tell it from the
-real feed.
+Desks and their members in a SQLite file through EF Core: the entities, the migrations, the repositories. Owns its
+entity classes; Core's records stay free of EF.
+
+(A mock feed project that stood in for CEAPI was removed on 2026-09-25.)

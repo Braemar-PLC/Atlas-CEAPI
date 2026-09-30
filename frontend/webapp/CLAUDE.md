@@ -17,7 +17,7 @@ Verified against the code on 2026-09-18.
 | Lint | `npm run lint` |
 | Production build | `npm run build` (type-check, then Vite → `dist/`) |
 
-To see live-looking prices, start the mock feed and the API first (root notes, "Running locally"), then `npm run dev` and open http://localhost:5173/natgas.
+To see prices, start the API and the ICE relay first (root notes, "Running locally"; the mock feed was removed on 2026-09-25), then `npm run dev` and open http://localhost:5173/natgas.
 `vite.config.ts` forwards `/api/*` to `https://localhost:7001`.
 
 `frontend/package-lock.json` (one directory up) is an empty stray from running `npm install` one folder too high.
@@ -42,10 +42,21 @@ src/routes/            TanStack Router, file-based. One file = one URL.
 src/components/        SignInGate + SignInPage (in front of the router, main.tsx), DeskBar, DeskEditor, SignedInAs
 src/application/
   modules/screen/      index.tsx (lifecycle) → screen.view-model.ts (store → rows) → screen.component.tsx (grid only);
-                       implied.ts (the coal implied prices)
+                       implied.ts (the coal implied prices); screen.hooks.ts (useScreen, useNow, useThrottled -
+                       shared with chain/ and calculator/); unchanged-rows.ts (keeps unchanged rows' objects)
+  modules/chain/       The option chains (Cross-Commodities desk): index.tsx → chain.view-model.ts (store → ladder
+                       rows) → chain.col-defs.ts (Calls | Strike | Puts); draws with screen.component.tsx
+  modules/calculator/  The options calculator, the central box of the desk's: index.tsx (product tabs, the slim
+                       strategy bar, the matrix, a totals line) over calculator.view-model.ts (pure: traded price
+                       of a quote, a strategy's legs, Black-76 per leg and netted, the at-the-money straddles,
+                       the strategy's title and settlement), matrix.view-model.ts (every listed strike of every
+                       expiry, priced at the market's, the fitted or a borrowed vol), matrix.col-defs.ts (a block
+                       per expiry), matrix.block-header.tsx (the block's live future price), contract-code.ts
+                       ("Nov26" → "X26"); the maths is packages/data/src/pricing/black76.ts and skew.ts
   registries/          Static config: each desk's pages (nav-tabs.ts), each screen's columns (screen-views.ts),
-                       the coal product names (products.ts)
-  subscriptions/       Ref-counted shared SSE connection; writes into the store
+                       each chain's decimals (chain-views.ts), the coal product names (products.ts)
+  subscriptions/       Ref-counted shared SSE connection; gathers its messages into the store once per drawn frame
+  dev/                 Development-build only: performance-records.ts (empties the browser's timeline, #12)
 packages/data/         @atlas/data — TypeBox schemas, the NatGasSource port, the Zustand store (useNatGas)
 packages/external/     @atlas/external — EventSource adapter implementing the port, DTO → domain mapper
 ```
@@ -60,7 +71,7 @@ Each route passes its screen's key to the one module: `/natgas` → `ttf-flat`, 
 
 Data flow: `index.tsx` calls `fetchScreen(key)` (`http-screen.adapter.ts` → `GET /api/screens/{key}`, checked against `ScreenSchema`) and re-asks every 15 minutes so an open wall screen follows a roll by itself → with the screen in hand, the subscriptions manager opens `EventSource` on `/api/screens/{key}/stream` (one counted connection per screen) → `sse-pricing.adapter.ts` listens for the API's named `snapshot` events and checks each against `PricingStreamEventSchema` → `pricing-stream-event.mapper.ts` turns ICE field IDs into a quote (bid 20, ask 21, last 19, …).
 **Which row a price belongs to comes from its symbol**, looked up in `stripsBySymbol(screen)`; only for a symbol the screen does not list does it fall back to ICE's fields 951 (hub) and 971 (strip name).
-That is what lets ICE's spread contracts work, whatever they carry in those fields → `patch` on the store → `buildScreenRows` in the view-model makes one grid row per screen row, in the screen's order, blank until its price arrives (as on ICE) → AG Grid, which matches rows by `symbol|tenor` (`getRowId`) so a tick updates the changed cells in place instead of redrawing the grid.
+That is what lets ICE's spread contracts work, whatever they carry in those fields → the manager gathers the quotes and applies them to the store as one `patchMany` at the next frame the browser draws - one render per frame, not per message; a 250 ms timer (`PriceBatchFallbackMs`) applies them in a background tab, which draws no frames (Known problems #11, #13) → `buildScreenRows` in the view-model makes one grid row per screen row, in the screen's order, blank until its price arrives (as on ICE) → `ScreenComponent` hands the grid the previous object for every row whose figures did not change (`unchanged-rows.ts`) → AG Grid, which matches rows by `symbol|tenor` (`getRowId`) so a tick updates the changed cells in place instead of redrawing the grid; `ScreenComponent` also redraws the grid's rows once a minute (`RowRedrawIntervalMs`, Known problems #13).
 **Two kinds of row.**
 `source: "quoted"` — ICE quotes it (every flat strip, and every same-kind spread): the row is the store's quote for that label.
 `source: "computed"` — no such contract (a month against a quarter): `computeSpreadQuote` works bid and offer out from the two legs, crossed (`bid = near bid − far offer`, `offer = near offer − far bid`), rounded to 3 decimals; last, change, settle, high, low and volume stay blank.
@@ -75,6 +86,24 @@ Checked against WebICE's Coal tab: Feb26 94.55/96.95 with Feb26/Mar26 −1.45/1.
 Spread rows themselves get no implied prices.
 The Product column's names (`registries/products.ts`) are the frontend's — the API does not carry them.
 Every API snapshot carries the symbol's full state, so the store's `push` (replace everything) is not used.
+**Option chains** (the Cross-Commodities desk, since 2026-09-25): `/xcom/ttf`, `/xcom/eua`, `/xcom/wti`, `/xcom/brent` → `xcom-ttf` … through `modules/chain`.
+A chain is a screen like any other - same `fetchScreen`, same stream, same store, same grid - whose rows carry an `option` block (`ScreenOptionSchema`: expiry date, underlying future, strike, C or P; null on the future at the head of each expiry).
+`buildChainRows` turns the API's flat list (future, then "Nov26 79.00 C", "Nov26 79.00 P", …) into a ladder: one row per strike, the call's quote in `call`, the put's in `put`, the future's own figures in `call` on its heading row; rows are keyed `expiry|strike` (or `expiry|future`) through the same `symbol|tenor` id.
+`chain.col-defs.ts` lays out Calls (Vol, Settle, Last, B Qty, Bid, Offer, O Qty) | Strike | Puts (mirrored) as AG Grid column groups, with dotted fields (`call.bid`, `put.bid`); the future's heading spans the strike column and the put side (`colSpan`), and `chainRowClassRules` marks the row for `screen.css`.
+Prices to 3 decimals for TTF and EUA, 2 for oil (`registries/chain-views.ts`).
+The three new hubs (`EUA`, `Brent`, `WTI`, commodity `CARBON`/`OIL`) are in `InstrumentSchema`; option quotes file under the row label, e.g. `curves.TTF["Nov26 80.00 C"]`.
+Which strikes are on the ladder is the API's business (its `Screens:Options` rules and the future's price); the browser draws what it is given.
+**The calculator** (`/xcom/calculator`, `modules/calculator`, 2026-09-25) is the central box of the desk's own "Options Analytics" screen (the screenshot in docs/roadmap.md section 12), which is all the desk asked for this round: product tabs (TTF, EUA, WTI, Brent); a slim strategy bar - the strategy written as the desk writes it ("TFO Z26 60.00/55.00/50.00 Butterfly", `strategyTitle`), expiry (by ICE code, `contractCode`: "X26" for Nov26, strips keep their names), strategy, strikes, RefPr, vol override, rate, then Theo, ΔNet (×100 as the desk's), Γ, Vol per leg, V, Θ per day, RefPr and Sett (`settlementValueOf`); and **the matrix** filling the rest: one block per expiry across - the desk's 12 months, 8 quarters, 8 seasons and 5 cals, scrolling right - each headed by its ICE code and its future's live price ("X26 71.691", `MatrixBlockHeader`, which watches that one future in the store so the columns are never rebuilt for a tick), and down each block its own Strike column, then the call's theo and delta, the put's theo and delta, and the vol, for every strike ICE lists (within half to one-and-a-half times the front future; the grid opens scrolled to the money once per product, `atmRowIndex`).
+The strategy's strikes are picked out in blue; a totals line under the grid repeats the net Greeks.
+**Where the vol comes from:** amber - read off that strike's own out-of-the-money traded price where the chain streams it; white - the skew fitted through the expiry's streamed strikes (`packages/data/src/pricing/skew.ts`: a least-squares quadratic in log-moneyness, clamped to half-to-twice the fitted vols, falling back to the at-the-money straddle vol flat when the band is thin); grey - borrowed from the nearest earlier expiry that has a skew, read at the same moneyness, because the trial feed sends nothing for the later expiries (root notes, known problem `symbol-list-rolling`).
+`referencePriceOf` takes the last trade, else the settlement, else the mid, and says which (the desk's ask: not the live screen, which is wide and easily pushed about).
+The matrix's skeleton - expiries and every strike - comes from `GET /api/options/{product}` (`fetchOptionMatrix`, `OptionMatrixSchema`); the prices come from the product's chain screen and stream, exactly as the chain tab has them.
+The maths is Black-76 in `packages/data/src/pricing/black76.ts` (pure TypeScript, no package: price, Greeks, implied vol by bisection, straddle vol, a normal CDF to 1e-7, `yearsToExpiry` to 14:00 Amsterdam on the last trading day - ICE's option cut-off, read from the browser's own zone tables), chosen over a .NET engine so the page re-prices on every input and tick without a round trip; if the API ever needs the same maths (a trade tape, a vol surface), port those two files.
+The rate is an input, 0 by default: right for TTF and EUA (futures-style, margined), a placeholder for Brent and WTI (paid up front) until a rate source is chosen.
+The matrix draws through `screen.component.tsx` with its `rowClassRules` and `onGridReady` props; its rows, strikes and reference price are memoised and the ladder is indexed by strike, so a build is a few ms; the page reads the store's prices at most five times a second (`useThrottled`, `CalculatorPriceIntervalMs`), so a build happens at most about six times a second (five price updates and the clock), never per frame or per message (Known problems #11, #13).
+The block headers read their futures from the store directly and follow every frame.
+Not built: the desk's Live Markets Pricing and Futures panels, the straddles panel, Watch, RFQ, P&L, Opt Params (docs/roadmap.md section 12 classifies them).
+Tests cover the maths, the view-models, the column layout, the header component and the adapter; the page itself has been checked by eye only.
 
 ## The grid replicates the ICE screen (desk's ask, 18 Sep 2026)
 
@@ -161,7 +190,7 @@ The reference is the 17 Sep photo of ICE's "Nat Gas TTF Flat Price" screen.
   Config changes usually need making in both files.
 - **The top bar is the desks** (`src/components/DeskBar.tsx`): one button per desk from `GET /api/desks`, in name order, plus **Admin** for admins; the desk the current page belongs to is lit (`activeDeskKey` in `src/application/desks/desk-links.ts`).
   A desk with screens goes to its first one; every other desk to `/desks/{key}`, an honest "No products yet" page until it has some.
-  Under the bar, the active desk's pages appear as tabs: `DeskPages` in `src/application/registries/nav-tabs.ts`, by desk key — Natural Gas (TTF Flat `/natgas`, TTF Time Spread `/ttf-time-spread`, NBP `/nbp`) and Coal (API2 (Rotterdam) `/coal/api2`, Newcastle `/coal/newcastle`, Spreads `/coal/spreads`), all the same module with a different screen key.
+  Under the bar, the active desk's pages appear as tabs: `DeskPages` in `src/application/registries/nav-tabs.ts`, by desk key — Natural Gas (TTF Flat `/natgas`, TTF Time Spread `/ttf-time-spread`, NBP `/nbp`) and Coal (API2 (Rotterdam) `/coal/api2`, Newcastle `/coal/newcastle`, Spreads `/coal/spreads`) and Cross-Commodities (TTF `/xcom/ttf`, EUA `/xcom/eua`, WTI `/xcom/wti`, Brent `/xcom/brent`, the option chains through `modules/chain`), the others all the same module with a different screen key.
   `pagesOf(deskKey)` answers them, and `deskHome`, `activeDeskKey`, `DeskLink` and the `/desks/{key}` redirect derive from it.
   Adding a page is one line there plus a route file; `tsc` fails if it points at an address with no route.
   Everyone sees every desk — **ring-fencing is not decided and not built**; membership only decides where `/` lands.
@@ -200,9 +229,9 @@ The reference is the 17 Sep photo of ICE's "Nat Gas TTF Flat Price" screen.
      Decide whether to delete it.
    - ~~`TtfFlatPriceStrips` in `natgas-domain.ts` is a hard-coded copy of the API's symbol list and needs rolling by hand as contracts expire.~~
      **Fixed 2026-09-21:** the list is gone; the API says which rows to draw.
-2. `packages/external/test/mocks/mockConnectServer.ts` reads `dummyData/dummyNatGas.*.json`, but the files are `dummy-data/dummyFutures.*.json` (missed in the futures → natgas rename).
-   It throws on start.
-   It also emits named `snapshot`/`update` events, which the adapter's `onmessage` would never receive.
+2. ~~`packages/external/test/mocks/mockConnectServer.ts` reads `dummyData/dummyNatGas.*.json`, but the files are `dummy-data/dummyFutures.*.json` (missed in the futures → natgas rename).
+   It throws on start.~~
+   **Deleted 2026-09-25** with the rest of the mock data (nothing imported either folder).
 3. `test/pages/NatgasGridPage.test.tsx` is stale — see Baseline.
 4. `natgas-quote.mapper.ts` and its DTO schema are tested but not used by the running app.
 5. ~~The view-model always uses `NatGasViews[0]`, so the NBP data that arrives is not shown anywhere.~~
@@ -215,15 +244,11 @@ The reference is the 17 Sep photo of ICE's "Nat Gas TTF Flat Price" screen.
    Fix: assign a fresh `{}` each time, and add a test that pushes twice.
 7. `README.md` is the untouched Vite template and says nothing about Atlas.
 8. **ICE-screen replica, gaps against the desk's photo** (2026-09-18):
-   - **B Qty and O Qty are blank on the mock feed** (its recording has no fields 30/31).
-     On live ICE data CEAPI derives 30/31 from the composite bid/ask items — root notes, "ICE access" — and the mapper already reads them.
+   - **B Qty and O Qty:** on live ICE data CEAPI derives fields 30/31 from the composite bid/ask items — root notes, "ICE access" — and the mapper reads them.
      A size of `0` renders as `0`, not blank; a display rule for that is not yet decided.
-   - **On the mock feed only 6 rows have prices** (TTF Oct26–Mar27, at March 2026 prices); every other row is drawn but blank, and the NBP and spreads tabs are blank throughout: the recording has nothing else.
-     On live ICE data the old 20-row screen filled completely (confirmed 2026-09-18, field 971 reading exactly `Winter26`, `Q4 26` …).
-     **The new 43-row screens, NBP and the spread contracts have not been seen on live data yet** — root notes, known problem `symbol-list-rolling`.
-     A fresh recording for the mock is still to do.
+     **Volume and Block Vol are blank at 0 since 2026-09-25** (Marc Jarvis: a column of zeros reads worse than blanks), on every screen and on the option chains (`traded` in `screen.col-defs.ts`).
+   - ~~On the mock feed only 6 rows have prices …~~ The mock feed was removed on 2026-09-25; the 43-row screens, NBP, the spreads and the option chains have all been seen on live data since 2026-09-22/25.
      Spread rows the desk can add and remove themselves are V2.
-   - Block Vol (field 924) is present on only some recorded lines, so some rows show it blank.
    - The look has been checked by eye only — headless Edge is blocked by company policy, so there is no screenshot test.
 9. `src/index.css` is still mostly the Vite template.
    On 2026-09-18 its `body { display: flex; place-items: center }` was removed, because it floated the ICE screen in the middle of the page with a gap above.
@@ -231,3 +256,40 @@ The reference is the 17 Sep photo of ICE's "Nat Gas TTF Flat Price" screen.
    **Sizing is fixed, not scaled to the screen:** 30px rows and 18px figures suit a laptop; the desk's wall screen shows the same 20 rows filling a whole TV, so a wall-screen mode would need sizes tied to the viewport height.
 10. The dev server logs "Route file …/routeTree.gen.ts does not export a Route" on start.
     Inherited and harmless.
+11. ~~**The tab grew to 5.8 GB in three minutes and froze on the calculator (2026-09-25, the desk's first live run).**~~
+    **Fixed the same day: batching in `natgas-subscriptions-manager.ts`.**
+    What a Node measurement against the live API showed: the store and adapter cost 0.18 ms a message and retain nothing (2 B a message over 25,000); `buildChainRows` for 657 rows costs 0.15 ms; but the calculator called `buildMatrixRows` on every render, 14.5 ms each (4,464 cells, 247 implied vols by 61-step bisection, a `ladder.find` per cell), and every one of the stream's ~120-250 messages a second was a render, because each `patch` replaces `curves` and every page selects `s => s.curves`.
+    That is 1.7-3.6 s of CPU a second: the main thread fell behind, the browser queued the unread events, and memory grew ~40 MB/s.
+    Now: (1) the manager gathers messages and applies them with the store's `patchMany` - every 200 ms until 2026-09-28, at the next drawn frame since (#13) - one store change and one render per batch, on every page; a whole-dataset `FUTURES_SNAPSHOT` (never sent today) flushes the batch first.
+    (2) The matrix indexes the ladder by expiry and strike once per ladder (`strikeRowsOf`, a `WeakMap`), and its rows, strikes and reference price are memoised, so a build happens at most about six times a second (five batches and the clock) and costs a few ms.
+    Tests: `test/subscriptions/natgas-subscriptions-manager.test.ts` (300 messages, one change), the store's `patchMany` tests, and the index following a changed ladder.
+    Left for later: the chain and flat pages still select the whole `curves` object, so a batch for one screen re-renders another screen's grid in the same tab (only one is open at a time today).
+12. ~~**The development build fills the browser's performance timeline without end (found 2026-09-28 while diagnosing a tab frozen at 7.3 GB; that freeze itself was most likely #14).**~~
+    **Fixed the same day.**
+    React 19.2's development build writes a `performance.measure` for every re-render whose props changed, with a copy of the changed props in its `detail` (`logComponentRender` in `react-dom-client.development.js`), and the browser keeps every measure until the tab closes.
+    Every grid gets new rows several times a second, so each measure copies rows: on the calculator, 2,224 measures held 140 MB after 75 s (the largest 231 KB, for `AgGridReactUi`), and the tab grew 6-22 MB a second; the option chains up to 2 MB a second, the gas and coal screens hardly at all.
+    Emptying the timeline every second (tried by hand first) kept the tab level.
+    The production build writes no measures.
+    Fix: `src/application/dev/performance-records.ts`, started from `main.tsx` in development only; test `test/dev/performance-records.test.ts`.
+    The browser's profiler still records every measure while it runs.
+13. **React keeps the updates AG Grid makes without changing anything (found 2026-09-28; mitigated the same day).**
+    When a component's state is set to the value it already has, React skips the redraw but still queues the update on that component, and drops the queue only when the component next draws (`react-dom-client.development.js`, the `objectIs(eagerState, currentState)` branch of the state setter).
+    AG Grid's React cells, rows and grid body set state on every refresh, mostly to the same value (a cell's `setRenderDetails` returns `prev` when the shown text is unchanged; AG Grid 36.2 does the same).
+    Heap snapshots traced the queued updates to their owners: on TTF Flat after 120 s, 17,136 on rows, 17,784 on the bid and offer bars, 1,447 on the grid body; on the calculator after 90 s, 60,871 on the matrix's cells (a price that moved in the fifth decimal but shows the same three), 16,318 on rows.
+    In production that was 1.6 MB a minute on TTF Flat and about 4 MB on the calculator - days for a wall screen.
+    What cut it: (1) `ScreenComponent` hands the grid the previous object for every row whose figures did not change (`unchanged-rows.ts`), so AG Grid leaves those rows alone - TTF Flat after 120 s: 4,291 updates in all, 216 on rows, 17 on the grid body; (2) it redraws the grid's rows once a minute (`RowRedrawIntervalMs`), which unmounts the row and cell components and so releases their queues.
+    Left: the grid body's queue on the calculator (568 after 90 s, about 6 a second, some 30 MB a day), which a row redraw does not reach, and the matrix's cells between redraws.
+    Tests: `test/modules/unchanged-rows.test.ts` and the "memory on a screen left open" block of `test/modules/screen.component.test.tsx`.
+    **The same day, latency:** the 200 ms batch timer was our only real delay (median 155-202 ms from arrival to store, because a burst's first message started the timer); the batch now goes in at the next drawn frame (`natgas-subscriptions-manager.ts`), and the calculator reads prices through `useThrottled` so its matrix is still built at most five times a second.
+    Tests: the manager's frame and background-tab tests, `test/modules/use-throttled.test.tsx`.
+    Measured live the same day, arrival to painted frame, median: TTF Flat 166 ms before, 28 ms after; TTF option chain 206 ms, 27 ms; calculator 246 ms, 42 ms.
+    Left: the once-a-minute row redraw is itself a 133 ms blocking task on an option chain in the development build, a small hitch every minute; redrawing a few rows at a time would spread it.
+14. ~~**Hovering the Braemar logo froze the tab (found 2026-09-28; Sean: "the same way it looked when it was crashing Friday").**~~
+    **Fixed the same day.**
+    The pointer stayed a hand, nothing could be clicked, and minutes later Edge showed its "page unresponsive" page; the tab's memory climbed about 200 MB a second.
+    Reproduced in a headless Edge with real mouse events (hovering alone was enough; a click sent from code never hovers, which is why the first tests missed it).
+    The router preloads a link's page on hover (`defaultPreload: 'intent'` in `App.tsx`); the logo links to `/`, whose `beforeLoad` redirects to your desk; and the router follows a redirect met while preloading by building a location from the redirect's `to`, starting from the redirecting address (`preloadRoute` in `@tanstack/router-core` 1.162.6).
+    The redirect gave only an `href`, so the location built was `/` again, which was preloaded, redirected, and so on without end, each round adding a cached match.
+    A real navigation reads `href`, so clicking worked when nothing hovered first.
+    Fix: `src/routes/index.tsx` redirects with `to`, as the other two redirects already did; test `test/routes/home.test.ts` (from `/`, the router must build the desk's address from the redirect).
+    Any link to `/` preloads the same way, so the fix is in the route, not the logo.

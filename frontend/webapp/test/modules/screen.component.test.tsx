@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { GridApi } from "ag-grid-community";
 import "@/ag-grid-setup";
@@ -118,5 +118,41 @@ describe("ScreenComponent row selection", () => {
     fireEvent.click(cellOfRow(1));
 
     expect(selectedStrips(api)).toEqual(["Nov26"]);
+  });
+});
+
+// Each refresh of a row or cell that changes nothing on screen leaves React holding a small record until that row or
+// cell is next redrawn, so rows that never change collected them without end (about 1.6 MB a minute on TTF Flat).
+describe("ScreenComponent memory on a screen left open", () => {
+  const props = { screenKey: "ttf-flat", title: "Nat Gas TTF Flat Price", colDefs, asOf: "" };
+  const figures = (octBid: number) => [
+    { symbol: "TTF", tenor: "Oct26", bid: octBid, ask: octBid + 0.04 },
+    { symbol: "TTF", tenor: "Nov26", bid: 77.1, ask: 77.15 },
+  ];
+
+  it("leaves a row whose figures did not change alone when another row ticks", async () => {
+    let api: GridApi | undefined;
+    const view = render(<ScreenComponent {...props} data={figures(77.85)} onGridReady={a => { api = a; }} />);
+    await waitFor(() => expect(api).toBeDefined());
+    const novBefore = api!.getRowNode("TTF|Nov26")!.data;
+
+    view.rerender(<ScreenComponent {...props} data={figures(77.9)} onGridReady={a => { api = a; }} />);
+
+    await waitFor(() => expect(api!.getRowNode("TTF|Oct26")!.data.bid).toBe(77.9));
+    expect(api!.getRowNode("TTF|Nov26")!.data).toBe(novBefore);
+  });
+
+  it("redraws its rows on a timer, which lets React drop what it held for them, and stops when closed", async () => {
+    let api: GridApi | undefined;
+    const view = render(<ScreenComponent {...props} data={figures(77.85)} rowRedrawIntervalMs={20} onGridReady={a => { api = a; }} />);
+    await waitFor(() => expect(api).toBeDefined());
+    const redraw = vi.spyOn(api!, "redrawRows");
+
+    await waitFor(() => expect(redraw).toHaveBeenCalled());
+
+    view.unmount();
+    const callsWhenClosed = redraw.mock.calls.length;
+    await new Promise(resolve => setTimeout(resolve, 100));
+    expect(redraw.mock.calls.length).toBe(callsWhenClosed);
   });
 });

@@ -33,6 +33,21 @@ describe("ScreenSchema", () => {
 
     expect(Value.Check(ScreenSchema, bad)).toBe(false);
   });
+
+  it("accepts an options screen: the future row with option null, and option rows with strike and right", () => {
+    const option = { expiryDate: "2026-10-27", underlyingSymbol: "TFM 26X-ICN", strike: 80, right: "C" };
+    const chain = {
+      key: "xcom-ttf", title: "TTF Options",
+      rows: [
+        { hub: "TTF", label: "Nov26", group: "Nov26", source: "quoted", symbol: "TFM 26X-ICN", near: null, far: null, option: null },
+        { hub: "TTF", label: "Nov26 80.00 C", group: "Nov26", source: "quoted", symbol: "TFO 26XC8000-ICN", near: null, far: null, option },
+      ],
+    };
+
+    expect(Value.Check(ScreenSchema, chain)).toBe(true);
+    expect(Value.Check(ScreenSchema, { ...chain, rows: [{ ...chain.rows[1], option: { ...option, right: "X" } }] })).toBe(false);
+    expect(Value.Check(ScreenSchema, { ...chain, rows: [{ ...chain.rows[1], option: { ...option, strike: "80" } }] })).toBe(false);
+  });
 });
 
 describe("stripsBySymbol", () => {

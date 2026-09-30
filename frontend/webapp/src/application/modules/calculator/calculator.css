@@ -1,0 +1,102 @@
+/* The options calculator as the central box of the desk's own: product tabs, a slim strategy bar, the matrix
+   filling the rest, a totals line under it. The ICE-screen colours of the grids (screen.theme.ts, screen.css).
+   Sizes are fixed for a laptop, as the grids' are. */
+
+.calc {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 8px;
+  gap: 6px;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #e8ebef;
+  background: #000000;
+}
+
+/* The product tabs, styled as the desk's page tabs. */
+.calc-tabs { display: flex; gap: 6px; }
+.calc-tab {
+  padding: 5px 14px;
+  border: 1px solid #2a3038;
+  border-radius: 4px;
+  background: transparent;
+  color: #c9d4e2;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.calc-tab-active { background: #dde5ee; color: #1b1f24; border-color: #dde5ee; }
+
+/* The strategy bar: the strategy's name, the inputs, then the figures grouped as the desk's top bar. */
+.calc-strategy {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: flex-end;
+  padding: 6px 12px;
+  background: #14181d;
+  border: 1px solid #2a3038;
+}
+
+.calc-strategy-title {
+  align-self: center;
+  min-width: 260px;
+  font-size: 15px;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc-strategy label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: #9aa3ad;
+}
+
+.calc-strategy select,
+.calc-strategy input {
+  min-width: 88px;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  border-radius: 4px;
+  border: 1px solid #3a424c;
+  background: #0b0d10;
+  color: #e8ebef;
+}
+
+.calc-results { display: flex; gap: 16px; margin-left: auto; }
+.calc-result { display: flex; flex-direction: column; align-items: flex-end; min-width: 56px; }
+.calc-result b { font-weight: 400; font-size: 17px; color: #e8ebef; font-variant-numeric: tabular-nums; }
+.calc-result-theo b { color: #2fcf75; }
+.calc-result small { font-size: 11px; color: #9aa3ad; }
+
+/* The matrix fills the height left over; it reuses the screen component, which pads itself - here the page does. */
+.calc-matrix { flex: 1; min-height: 0; }
+.calc-matrix .ice-screen { padding: 0; }
+
+/* The totals line under the matrix, as the desk's footer. */
+.calc-totals {
+  display: flex;
+  gap: 22px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #9aa3ad;
+  font-variant-numeric: tabular-nums;
+}
+.calc-totals b { font-weight: 400; color: #e8ebef; }
+
+/* The matrix: every fifth strike a permanent blue guide row as on the desk's screen, the strategy's strikes
+   outlined in amber, each block's strike column set apart, and the vol's colour saying where it came from - amber
+   read off the market, white fitted, grey borrowed from another expiry. */
+.ice-screen .ag-row.ice-matrix-stripe { background: #1b3a6b; }
+.ice-screen .ag-row.ice-matrix-leg { box-shadow: inset 0 0 0 1px #f2b632; }
+.ice-screen .ag-cell.ice-matrix-first { border-left: 1px solid #4a5563; }
+.ice-screen .ag-cell.ice-matrix-market-vol { color: #f2b632; }
+.ice-screen .ag-cell.ice-matrix-borrowed-vol { color: #7d8794; }
+.ice-screen .ag-header-group-cell.ice-matrix-quarter,
+.ice-screen .ag-header-group-cell.ice-matrix-season,
+.ice-screen .ag-header-group-cell.ice-matrix-cal { color: #c9d4e2; }
+.ice-matrix-block-header { font-variant-numeric: tabular-nums; }

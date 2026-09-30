@@ -117,3 +117,21 @@
 .ice-screen .ag-header-cell.ice-implied-first {
   border-left: 1px solid #4a5563;
 }
+
+/* Option chains (the Cross-Commodities desk). The strike column is the spine of the ladder; the future at the
+   head of each expiry is a heading row, its text running left from the strike column across the put side. */
+.ice-screen .ag-cell.ice-chain-strike {
+  border-left: 1px solid #4a5563;
+  border-right: 1px solid #4a5563;
+  color: #c9d4e2;
+}
+.ice-screen .ag-row.ice-chain-future {
+  background: #1f2630;
+}
+.ice-screen .ag-row.ice-chain-future .ag-cell.ice-chain-heading {
+  text-align: left;
+  border-right: none;
+}
+.ice-screen .ag-header-group-cell.ice-chain-group .ag-header-group-cell-label {
+  justify-content: center;
+}

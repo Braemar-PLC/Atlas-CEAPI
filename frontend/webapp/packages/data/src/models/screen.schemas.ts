@@ -10,16 +10,27 @@ export const ScreenLegSchema = Type.Object({
   symbol: Type.String(),  // the ICE symbol its prices arrive under
 });
 
+// What makes a row an option, on an options screen (the Cross-Commodities desk's chains). The one row per
+// expiry without it is the future the options are priced against.
+export const ScreenOptionSchema = Type.Object({
+  expiryDate: Type.String(),       // the option's last trading day, "2026-10-27"
+  underlyingSymbol: Type.String(), // the future it is priced against, "TFM 26X-ICN"
+  strike: Type.Number(),
+  right: Type.Union([Type.Literal("C"), Type.Literal("P")]),
+});
+
 export const ScreenRowSchema = Type.Object({
   hub: InstrumentSchema,
-  label: Type.String(),   // what the Strip column shows: "Oct26", "Q4 26", "Oct26/Nov26"
-  group: Type.String(),   // "Months" | "Quarters" | "Seasons" | "Cals" | "Spreads"
+  label: Type.String(),   // what the Strip column shows: "Oct26", "Q4 26", "Oct26/Nov26", "Nov26 80.00 C"
+  group: Type.String(),   // "Months" | "Quarters" | "Seasons" | "Cals" | "Spreads", or the expiry on an options screen
   // "quoted": ICE quotes this as a contract; its prices arrive under `symbol`.
   // "computed": no such contract exists (a month against a quarter, say); the row is worked out from `near` and `far`.
   source: Type.Union([Type.Literal("quoted"), Type.Literal("computed")]),
   symbol: Type.Union([Type.String(), Type.Null()]),
   near: Type.Union([ScreenLegSchema, Type.Null()]),
   far: Type.Union([ScreenLegSchema, Type.Null()]),
+  // Absent or null on every row but an option's. Optional as well as nullable so older screens still check.
+  option: Type.Optional(Type.Union([ScreenOptionSchema, Type.Null()])),
 });
 
 export const ScreenSchema = Type.Object({
@@ -30,6 +41,7 @@ export const ScreenSchema = Type.Object({
 
 // GENERATED TYPES
 export type ScreenLeg = Static<typeof ScreenLegSchema>;
+export type ScreenOption = Static<typeof ScreenOptionSchema>;
 export type ScreenRow = Static<typeof ScreenRowSchema>;
 export type Screen = Static<typeof ScreenSchema>;
 

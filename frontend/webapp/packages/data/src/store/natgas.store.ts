@@ -10,6 +10,7 @@ interface NatGasState {
   curves: NatGasCurveMap;
   push: (map: NatGasCurveMap) => void;                // full dataset
   patch: (q: Partial<NatGasQuote>) => void;           // delta update
+  patchMany: (qs: readonly Partial<NatGasQuote>[]) => void; // a batch of delta updates, as one state change
 
   clear: () => void;
 
@@ -25,6 +26,23 @@ interface NatGasState {
   // ) => Record<Instrument, Partial<NatGasQuote> | undefined>;
 }
 const initialState = {} as NatGasCurveMap;
+
+/** Merges one delta into the curves (an immer draft): the strip is created if new, and the tick direction set from the last price. */
+function applyDelta(curves: NatGasCurveMap, q: Partial<NatGasQuote>) {
+  const { instrument, tenor } = q;
+  if (!instrument || !tenor) return;
+
+  curves[instrument] ??= {};
+  curves[instrument][tenor] ??= {};
+  const quote = curves[instrument][tenor]!;
+
+  // Tick direction: compare the incoming last with the one we already hold.
+  const previousLast = quote.last;
+  Object.assign(quote, q);
+  if (q.last != null && previousLast != null && q.last !== previousLast) {
+    quote.tick = q.last > previousLast ? "up" : "down";
+  }
+}
 
 export const useNatGas = create<NatGasState>()(
 
@@ -43,21 +61,13 @@ export const useNatGas = create<NatGasState>()(
         }
       }),
 
-    patch: (q) =>
+    patch: (q) => set((s) => { applyDelta(s.curves, q); }),
+
+    // The stream hands over a few hundred deltas a second on an option chain, and every state change re-renders
+    // every open grid; applied together (natgas-subscriptions-manager.ts gathers them) a batch is one render.
+    patchMany: (qs) =>
       set((s) => {
-        const { instrument, tenor } = q;
-        if (!instrument || !tenor) return;
-
-        s.curves[instrument] ??= {};
-        s.curves[instrument][tenor] ??= {};
-        const quote = s.curves[instrument][tenor]!;
-
-        // Tick direction: compare the incoming last with the one we already hold.
-        const previousLast = quote.last;
-        Object.assign(quote, q);
-        if (q.last != null && previousLast != null && q.last !== previousLast) {
-          quote.tick = q.last > previousLast ? "up" : "down";
-        }
+        for (const q of qs) applyDelta(s.curves, q);
       }),
 
     clear: () => set((s) => { s.curves = initialState; }),
