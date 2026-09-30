@@ -87,6 +87,8 @@ jobs:
       - name: Build CEAPI distribution
         shell: pwsh
         run: |
+          # The unit tests read settings from the environment, so they must not see this job's real ICE values.
+          Remove-Item Env:ICE_HOST, Env:ICE_USERNAME, Env:ICE_PASSWORD, Env:ICE_SYMBOLS, Env:SYMBOLS_URL -ErrorAction SilentlyContinue
           gradle --project-dir CEAPI --no-daemon test installDist
           if ($LASTEXITCODE -ne 0) {
             throw "Gradle test/installDist failed with exit code $LASTEXITCODE"

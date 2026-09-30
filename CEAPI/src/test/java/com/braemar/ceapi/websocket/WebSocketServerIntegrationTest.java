@@ -161,6 +161,12 @@ class WebSocketServerIntegrationTest {
 
     private void connectAndAwaitServerOpen(TestClient client) throws Exception {
         assertTrue(client.connectBlocking(), "WebSocket client failed to connect");
+        // The client's handshake completes before the server's onOpen has registered it.
+        long deadline = System.currentTimeMillis() + 2000;
+        while (!server.hasClient() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10);
+        }
+        assertTrue(server.hasClient(), "Server did not register the client");
     }
 
     private static WebSocketServer makeServer(int port,
