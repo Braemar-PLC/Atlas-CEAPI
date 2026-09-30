@@ -27,8 +27,9 @@ public class IceConnectionManager {
 
     private static final Logger logger = Logger.getLogger(IceConnectionManager.class.getName());
 
-    /** Seconds to wait before each reopen attempt; the last one repeats. */
-    static final long[] BACKOFF_SECONDS = {5, 10, 30, 60, 120};
+    /** Seconds to wait before each reopen attempt; the last one repeats. The first is short because a dropped session
+     * means blank grids for a trader, and ICE usually accepts an immediate reopen. */
+    static final long[] BACKOFF_SECONDS = {1, 5, 10, 30, 60, 120};
 
     private final Settings settings;
     private final ResourceManagerFactory factory;
