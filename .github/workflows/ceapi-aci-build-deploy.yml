@@ -27,8 +27,7 @@ jobs:
       ICE_HOST: ${{ secrets.ICE_HOST }}
       ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
       ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
-      ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
-      # CEAPI asks the Web App for its symbol list on every ICE connect; ICE_SYMBOLS is the fallback.
+      # CEAPI asks the Web App for its symbol list on every ICE connect; the workflow also embeds a validated fallback.
       SYMBOLS_URL: 'https://atlas-webapp-braemar.azurewebsites.net/api/screens/symbols'
 
     steps:
@@ -89,7 +88,7 @@ jobs:
         shell: pwsh
         run: |
           # The unit tests read settings from the environment, so they must not see this job's real ICE values.
-          Remove-Item Env:ICE_HOST, Env:ICE_USERNAME, Env:ICE_PASSWORD, Env:ICE_SYMBOLS, Env:SYMBOLS_URL -ErrorAction SilentlyContinue
+          Remove-Item Env:ICE_HOST, Env:ICE_USERNAME, Env:ICE_PASSWORD, Env:SYMBOLS_URL -ErrorAction SilentlyContinue
           gradle --project-dir CEAPI --no-daemon test installDist
           if ($LASTEXITCODE -ne 0) {
             throw "Gradle test/installDist failed with exit code $LASTEXITCODE"
@@ -104,6 +103,33 @@ jobs:
               throw "Required CEAPI runtime artifact missing after Gradle build: $path"
             }
           }
+
+      - name: Capture complete fallback symbol list
+        shell: pwsh
+        run: |
+          $outputPath = 'CEAPI/build/install/ceapi/config/symbols.csv'
+          $symbolsCsv = $null
+          for ($attempt = 1; $attempt -le 6; $attempt++) {
+            try {
+              $symbolsCsv = (Invoke-WebRequest -Uri "$env:SYMBOLS_URL" -UseBasicParsing -TimeoutSec 30).Content
+              break
+            }
+            catch {
+              if ($attempt -eq 6) {
+                throw "Could not download the CEAPI symbol fallback after $attempt attempts: $($_.Exception.Message)"
+              }
+              Start-Sleep -Seconds ([Math]::Min(5 * $attempt, 20))
+            }
+          }
+
+          $symbols = @($symbolsCsv -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+          if ($symbols.Count -lt 3800) {
+            throw "The symbol endpoint returned only $($symbols.Count) unique symbols; refusing to deploy an incomplete fallback."
+          }
+
+          New-Item -ItemType Directory -Path (Split-Path $outputPath) -Force | Out-Null
+          [IO.File]::WriteAllText($outputPath, ($symbols -join ','), [Text.UTF8Encoding]::new($false))
+          Write-Host "Embedded $($symbols.Count) unique symbols in the CEAPI image fallback."
 
       - name: Build and push CEAPI Windows image with ACR Tasks
         shell: pwsh
@@ -135,7 +161,6 @@ jobs:
               iceHost="$env:ICE_HOST" `
               iceUsername="$env:ICE_USERNAME" `
               icePassword="$env:ICE_PASSWORD" `
-              symbols="$env:ICE_SYMBOLS" `
               symbolsUrl="$env:SYMBOLS_URL" `
               vnetName='BraemarSecurities-Development-VNET'
 
@@ -167,7 +192,6 @@ jobs:
               iceHost="$env:ICE_HOST" `
               iceUsername="$env:ICE_USERNAME" `
               icePassword="$env:ICE_PASSWORD" `
-              symbols="$env:ICE_SYMBOLS" `
               symbolsUrl="$env:SYMBOLS_URL" `
               vnetName='BraemarSecurities-Development-VNET'
 

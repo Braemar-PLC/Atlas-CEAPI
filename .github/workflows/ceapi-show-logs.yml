@@ -53,10 +53,10 @@ jobs:
             --workspace "$WORKSPACE_ID" \
             --analytics-query "search * | distinct \$table | take 50" \
             --output table || true
-          echo "--- ContainerInstanceLog_CL (latest 150 lines, per-symbol subscribe lines left out, oldest first) ---"
+          echo "--- ContainerInstanceLog_CL (latest 300 diagnostic lines, noisy per-symbol lines left out, oldest first) ---"
           az monitor log-analytics query \
             --workspace "$WORKSPACE_ID" \
-            --analytics-query "ContainerInstanceLog_CL | where Message !contains 'Subscribed: ' | top 150 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
+            --analytics-query "ContainerInstanceLog_CL | where Message !contains 'Subscribed: ' and Message !contains 'ICE symbol event:' and Message !contains 'DBCAPI_ERROR_NOTCONNECTED' | top 300 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
             --output tsv || true
 
       - name: Probe the relay port from outside

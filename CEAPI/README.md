@@ -33,16 +33,21 @@ resync
 | ICE_HOST      | Yes      | —         | ICE host e.g. cm.dataservices.theice.com |
 | ICE_USERNAME  | Yes      | —         | ICE username                     |
 | ICE_PASSWORD  | Yes      | —         | ICE password                     |
-| SYMBOLS       | Yes, unless SYMBOLS_URL is set | — | Comma-separated symbol list; the fallback when SYMBOLS_URL cannot be reached |
+| SYMBOLS       | Yes, unless SYMBOLS_URL is set | — | Comma-separated fallback list for local runs. The Azure deployment uses `SYMBOLS_FILE` instead because the complete list exceeds GitHub's secret-size limit |
+| SYMBOLS_FILE  | No       | —         | Path to a comma-separated fallback list. Takes precedence over `SYMBOLS`; Azure embeds the validated current list at `C:\app\config\symbols.csv` |
 | SYMBOLS_URL   | No       | —         | Web API address listing the symbols the screens need (`/api/screens/symbols`). Fetched on every ICE connect and re-checked hourly, so the list follows contract rolls and option chains without a restart |
 | WS_PORT       | No       | 9001      | WebSocket server port            |
 
 CEAPI publishes feed health every five seconds. The Web API and browser use the generation and timestamp to
 reject old status events and mark displayed prices as non-current if the relay becomes silent.
 
-If ICE drops the session, CEAPI reopens it by itself (backing off 1s, 5s, 10s, 30s, 60s, then every 120s) for as
-long as the Web API is connected. An ICE credential rejection is published as `AUTHENTICATION_FAILED` rather than
-leaving the last prices looking live.
+If ICE drops an established session, the JStandard SDK's default automatic recovery owns the reconnect and CEAPI
+resubscribes when that same session reconnects. CEAPI does not create a competing `QuoteManager` while the SDK is
+recovering. The 1s, 5s, 10s, 30s, 60s, then 120s backoff is reserved for failures that occur before the SDK starts
+a connection. Disconnect status codes are included in the feed detail and container logs. Statuses that ICE marks
+as non-reconnectable, including address changes, entitlement failures, required upgrades, and invalid credentials,
+are not overridden by CEAPI. Credential rejection is published as `AUTHENTICATION_FAILED` rather than leaving the
+last prices looking live.
 
 ## Setup
 

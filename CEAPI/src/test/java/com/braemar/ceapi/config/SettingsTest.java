@@ -1,10 +1,15 @@
 package com.braemar.ceapi.config;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,6 +18,9 @@ class SettingsTest {
 
     @SystemStub
     private EnvironmentVariables env;
+
+    @TempDir
+    private Path tempDir;
 
     @Test
     void fromEnv_constructsCorrectly_whenAllVarsPresent() {
@@ -89,6 +97,36 @@ class SettingsTest {
 
         assertEquals("https://atlas.example/api/screens/symbols", s.symbolsUrl);
         assertNull(s.symbols);
+    }
+
+    @Test
+    void fromEnv_usesSymbolsFileAsTheFallback() throws IOException {
+        Path symbolsFile = tempDir.resolve("symbols.csv");
+        Files.writeString(symbolsFile, "SYM1,SYM2");
+        env.set("ICE_HOST", "myhost")
+           .set("ICE_USERNAME", "user")
+           .set("ICE_PASSWORD", "pass")
+           .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols")
+           .set("SYMBOLS", "OLD")
+           .set("SYMBOLS_FILE", symbolsFile.toString());
+
+        Settings s = Settings.fromEnv();
+
+        assertEquals("SYM1,SYM2", s.symbols);
+    }
+
+    @Test
+    void fromEnv_failsClearlyWhenSymbolsFileCannotBeRead() {
+        Path missingFile = tempDir.resolve("missing.csv");
+        env.set("ICE_HOST", "myhost")
+           .set("ICE_USERNAME", "user")
+           .set("ICE_PASSWORD", "pass")
+           .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols")
+           .set("SYMBOLS_FILE", missingFile.toString());
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, Settings::fromEnv);
+
+        assertTrue(ex.getMessage().contains("Could not read SYMBOLS_FILE"));
     }
 
     @Test
