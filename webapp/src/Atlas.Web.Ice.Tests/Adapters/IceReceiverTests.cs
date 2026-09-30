@@ -187,6 +187,41 @@ public class IceReceiverTests
     }
 
     [Fact]
+    public async Task Connect_ThatNeverAnswers_TimesOutAndIsRetried()
+    {
+        var hanging = new HangingWebSocketClient();
+        var good = FakeWebSocketClient.FromFile(TestDataPath);
+        var factory = new FakeWebSocketClientFactory(hanging, good);
+        var options = Options.Create(new IceOptions
+        {
+            Endpoint = "localhost", Port = 9002, ConnectTimeout = TimeSpan.FromMilliseconds(100),
+        });
+
+        var sut = Build(factory, options: options);
+        await sut.StartAsync(CancellationToken.None);
+        await Task.Delay(600);
+        await sut.StopAsync(CancellationToken.None);
+
+        good.ConnectedUri.Should().NotBeNull();
+    }
+
+    /// <summary>A relay that accepts nothing and refuses nothing, as one being replaced can.</summary>
+    private sealed class HangingWebSocketClient : IWebSocketClient
+    {
+        public System.Net.WebSockets.WebSocketState State => System.Net.WebSockets.WebSocketState.Connecting;
+
+        public Task ConnectAsync(Uri uri, CancellationToken ct) => Task.Delay(Timeout.Infinite, ct);
+
+        public Task<System.Net.WebSockets.WebSocketReceiveResult> ReceiveAsync(ArraySegment<byte> buffer, CancellationToken ct) =>
+            throw new InvalidOperationException("Not connected");
+
+        public Task CloseAsync(System.Net.WebSockets.WebSocketCloseStatus closeStatus, string statusDescription, CancellationToken ct) =>
+            Task.CompletedTask;
+
+        public void Dispose() { }
+    }
+
+    [Fact]
     public async Task StartAsync_WhenCancelled_StopsGracefully()
     {
         var ws = FakeWebSocketClient.FromFile(TestDataPath);

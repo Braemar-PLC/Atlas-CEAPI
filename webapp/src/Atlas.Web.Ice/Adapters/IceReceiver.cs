@@ -66,7 +66,18 @@ public sealed class IceReceiver : IHostedService
             try
             {
                 _ws = _wsFactory.Create();
-                await _ws.ConnectAsync(_options.WebSocketUri, ct);
+                using (var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+                {
+                    connectCts.CancelAfter(_options.ConnectTimeout);
+                    try
+                    {
+                        await _ws.ConnectAsync(_options.WebSocketUri, connectCts.Token);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        throw new TimeoutException($"No answer from the CEAPI relay within {_options.ConnectTimeout}.");
+                    }
+                }
                 _logger.LogInformation("Connected to the CEAPI relay at {Uri}", _options.WebSocketUri);
                 attempt = 0;
                 await ReceiveLoopAsync(_ws, ct);
