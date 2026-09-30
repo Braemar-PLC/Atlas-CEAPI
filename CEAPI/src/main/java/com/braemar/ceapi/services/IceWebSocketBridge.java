@@ -1,6 +1,7 @@
 package com.braemar.ceapi.services;
 
 import com.braemar.ceapi.ice.IceConnectionManager;
+import com.braemar.ceapi.ice.FeedStatusEvent;
 import com.braemar.ceapi.ice.QuoteReceivedEvent;
 import com.braemar.ceapi.utility.Observable;
 import com.braemar.ceapi.websocket.CommandParser;
@@ -40,6 +41,7 @@ public class IceWebSocketBridge {
             Observable<ClientConnectedEvent> clientConnectedEvent,
             Observable<ClientDisconnectedEvent> clientDisconnectedEvent,
             Observable<QuoteReceivedEvent> quoteReceivedEvent,
+            Observable<FeedStatusEvent> feedStatusEvent,
             Observable<StatusEvent> statusEvent,
             Observable<SymbolEvent> symbolEvent) {
         this.wsServer = wsServer;
@@ -50,6 +52,7 @@ public class IceWebSocketBridge {
         clientConnectedEvent.subscribe(this::onClientConnectedEvent);
         clientDisconnectedEvent.subscribe(this::onClientDisconnectedEvent);
         quoteReceivedEvent.subscribe(this::onQuoteReceivedEvent);
+        feedStatusEvent.subscribe(this::onFeedStatusEvent);
         statusEvent.subscribe(this::onStatusEvent);
         symbolEvent.subscribe(this::onSymbolEvent);
     }
@@ -91,8 +94,12 @@ public class IceWebSocketBridge {
      * nobody to send it to. Next connect will get a fresh snapshot.
      */
     private void onClientDisconnectedEvent(ClientDisconnectedEvent event) {
-        logger.info("WebSocket client disconnected — disconnecting ICE");
-        iceManager.disconnect();
+        if (wsServer.openClientCount() == 0) {
+            logger.info("Last WebSocket client disconnected — disconnecting ICE");
+            iceManager.disconnect();
+        } else {
+            logger.info("WebSocket client disconnected; keeping ICE connected for remaining clients");
+        }
     }
 
     /**
@@ -121,6 +128,10 @@ public class IceWebSocketBridge {
                 ? MessageBuilder.refresh(event.symbol, event.fieldIds, event.fieldValues)
                 : MessageBuilder.update(event.symbol, event.fieldIds, event.fieldValues);
         wsServer.publish(message);
+    }
+
+    private void onFeedStatusEvent(FeedStatusEvent event) {
+        wsServer.publish(MessageBuilder.status(event));
     }
 
     private void onStatusEvent(StatusEvent e) {

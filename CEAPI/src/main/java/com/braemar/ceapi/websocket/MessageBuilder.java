@@ -1,12 +1,14 @@
 package com.braemar.ceapi.websocket;
 
+import com.braemar.ceapi.ice.FeedStatusEvent;
+
 /**
  * Builds raw array format messages to send over WebSocket.
  *
  * Format:
  *   refresh: ["refresh","SYMBOL",[[id,value],[id,value],...]]
  *   update:  ["update","SYMBOL",[[id,value],[id,value],...]]
- *   status:  ["status","MESSAGE"]
+ *   status:  ["status",{"state":"LIVE","generation":1,...}]
  */
 public class MessageBuilder {
 
@@ -20,6 +22,16 @@ public class MessageBuilder {
 
     public static String status(String message) {
         return "[\"status\",\"" + escape(message) + "\"]";
+    }
+
+    public static String status(FeedStatusEvent event) {
+        return "[\"status\",{"
+                + "\"state\":\"" + event.state() + "\","
+                + "\"generation\":" + event.generation() + ","
+                + "\"timestamp\":\"" + event.timestamp() + "\","
+                + "\"detail\":\"" + escape(event.detail()) + "\","
+                + "\"subscribedSymbols\":" + event.subscribedSymbols()
+                + "}]";
     }
 
     private static String buildMessage(String type, String symbol, short[] fieldIds, String[] fieldValues) {

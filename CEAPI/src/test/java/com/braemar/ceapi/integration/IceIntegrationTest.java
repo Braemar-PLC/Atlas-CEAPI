@@ -48,6 +48,7 @@ class IceIntegrationTest {
         clientConnectedEvents = new Observable<>();
         Observable<String> commandEvents = new Observable<>();
         Observable<ClientDisconnectedEvent> clientDisconnectedEvents = new Observable<>();
+        Observable<com.braemar.ceapi.ice.FeedStatusEvent> feedStatusEvents = new Observable<>();
         Observable<StatusEvent> statusEmitter = new Observable<>();
         Observable<SymbolEvent> symbolEmitter = new Observable<>();
 
@@ -58,7 +59,7 @@ class IceIntegrationTest {
 
         bridge = new IceWebSocketBridge(wsServer, iceManager, logger,
                 commandEvents, clientConnectedEvents, clientDisconnectedEvents,
-                quoteEmitter, statusEmitter, symbolEmitter);
+                quoteEmitter, feedStatusEvents, statusEmitter, symbolEmitter);
 
         bridge.start();
         Thread.sleep(150);

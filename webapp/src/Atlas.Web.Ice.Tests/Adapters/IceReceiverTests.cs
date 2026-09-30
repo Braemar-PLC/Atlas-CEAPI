@@ -3,6 +3,7 @@ using Atlas.Web.Ice.Configuration;
 using Atlas.Web.Ice.Domain.Services;
 using Atlas.Web.Ice.Tests.Fakes;
 using Atlas.Web.Ice.WebSocket;
+using Atlas.Web.Core.Domain.Logic;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -24,6 +25,7 @@ public class IceReceiverTests
         new(
             wsFactory,
             processor ?? new Mock<IIceMessageProcessor>().Object,
+            new FeedHealthStore(TimeProvider.System, TimeSpan.FromSeconds(15)),
             options ?? DefaultOptions());
 
     // ─────────────────────────────────────────

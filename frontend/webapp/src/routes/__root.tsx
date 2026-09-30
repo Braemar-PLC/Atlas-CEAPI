@@ -8,6 +8,8 @@ import { pagesOf } from '@/application/registries/nav-tabs'
 import { activeDeskKey } from '@/application/desks/desk-links'
 import { useSignIn } from '@/application/auth/use-sign-in'
 import { loadSession } from '@/application/auth/session'
+import { useFeedHealth } from '@/application/feed/feed-health'
+import { FeedStatusBar } from '@/components/FeedStatusBar'
 
 function RootLayout() {
   const { session } = Route.useRouteContext()
@@ -15,6 +17,7 @@ function RootLayout() {
   const pathname = useLocation({ select: location => location.pathname })
   const activeKey = activeDeskKey(pathname)
   const pages = activeKey ? pagesOf(activeKey) : []
+  const feedHealth = useFeedHealth()
 
   return (
     // The page is exactly one window tall: the bars on top, the screen filling the rest. The screen scrolls
@@ -40,6 +43,7 @@ function RootLayout() {
           ))}
         </div>
       )}
+      <FeedStatusBar health={feedHealth} />
       <main style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Outlet />
       </main>

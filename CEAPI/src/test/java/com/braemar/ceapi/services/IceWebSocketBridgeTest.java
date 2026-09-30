@@ -1,6 +1,8 @@
 package com.braemar.ceapi.services;
 
 import com.braemar.ceapi.ice.IceConnectionManager;
+import com.braemar.ceapi.ice.FeedStatusEvent;
+import com.braemar.ceapi.ice.FeedState;
 import com.braemar.ceapi.ice.QuoteReceivedEvent;
 import com.braemar.ceapi.utility.Observable;
 import com.braemar.ceapi.websocket.MessageType;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.util.logging.Logger;
+import java.time.Instant;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -32,6 +35,7 @@ class IceWebSocketBridgeTest {
     private Observable<ClientConnectedEvent> clientConnectedEvents;
     private Observable<ClientDisconnectedEvent> clientDisconnectedEvents;
     private Observable<QuoteReceivedEvent> quoteReceivedEvents;
+    private Observable<FeedStatusEvent> feedStatusEvents;
     private Observable<StatusEvent> statusEvents;
     private Observable<SymbolEvent> symbolEvents;
 
@@ -47,6 +51,7 @@ class IceWebSocketBridgeTest {
         clientConnectedEvents = new Observable<>();
         clientDisconnectedEvents = new Observable<>();
         quoteReceivedEvents = new Observable<>();
+        feedStatusEvents = new Observable<>();
         statusEvents = new Observable<>();
         symbolEvents = new Observable<>();
 
@@ -56,6 +61,7 @@ class IceWebSocketBridgeTest {
                 clientConnectedEvents,
                 clientDisconnectedEvents,
                 quoteReceivedEvents,
+                feedStatusEvents,
                 statusEvents,
                 symbolEvents);
 
@@ -135,6 +141,20 @@ class IceWebSocketBridgeTest {
     }
 
     @Test
+    void onFeedStatus_publishesStructuredStatusMessage() {
+        feedStatusEvents.raise(new FeedStatusEvent(
+                FeedState.AUTHENTICATION_FAILED,
+                4,
+                Instant.parse("2026-09-30T13:00:00Z"),
+                "ICE rejected credentials",
+                0));
+
+        verify(wsServer).publish(argThat(msg ->
+                msg.contains("\"AUTHENTICATION_FAILED\"")
+                        && msg.contains("\"generation\":4")));
+    }
+
+    @Test
     void start_doesNotConnectIce() {
         service.start();
         verify(iceManager, never()).connect(any(Runnable.class));
@@ -149,7 +169,17 @@ class IceWebSocketBridgeTest {
 
     @Test
     void onClientDisconnected_triggersIceDisconnect() {
+        when(wsServer.openClientCount()).thenReturn(0);
         clientDisconnectedEvents.raise(new WebSocketServer.ClientDisconnectedEvent());
         verify(iceManager).disconnect();
+    }
+
+    @Test
+    void onClientDisconnected_keepsIceConnectedWhileAnotherClientRemains() {
+        when(wsServer.openClientCount()).thenReturn(1);
+
+        clientDisconnectedEvents.raise(new WebSocketServer.ClientDisconnectedEvent());
+
+        verify(iceManager, never()).disconnect();
     }
 }

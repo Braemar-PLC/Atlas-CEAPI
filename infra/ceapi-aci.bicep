@@ -87,6 +87,7 @@ resource ceapiSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' = {
   parent: vnet
   name: ceapiSubnetName
   properties: {
+    defaultOutboundAccess: false
     addressPrefixes: [
       ceapiSubnetPrefix
     ]

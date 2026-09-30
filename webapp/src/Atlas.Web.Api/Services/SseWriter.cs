@@ -16,7 +16,14 @@ public sealed class SseWriter : ISseWriter
         _heartbeatInterval = heartbeatInterval;
     }
 
-    public async Task StreamAsync<T>(HttpResponse response, IObservable<T> items, CancellationToken ct)
+    public Task StreamAsync<T>(HttpResponse response, IObservable<T> items, CancellationToken ct) =>
+        StreamAsync(response, items, ct, "snapshot");
+
+    public async Task StreamAsync<T>(
+        HttpResponse response,
+        IObservable<T> items,
+        CancellationToken ct,
+        string eventName)
     {
         response.Headers.ContentType = "text/event-stream";
         response.Headers["X-Accel-Buffering"] = "no";
@@ -46,7 +53,7 @@ public sealed class SseWriter : ISseWriter
                 }
 
                 await WriteMessage(
-                    ["event: snapshot", $"data: {JsonSerializer.Serialize(enumerator.Current, JsonOpts)}"],
+                    [$"event: {eventName}", $"data: {JsonSerializer.Serialize(enumerator.Current, JsonOpts)}"],
                     response);
                 pendingItem = null;
                 continue;

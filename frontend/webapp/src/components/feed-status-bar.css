@@ -1,0 +1,18 @@
+.feed-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 26px;
+  padding: 3px 16px;
+  color: #ffffff;
+  font: 12px/18px Arial, Helvetica, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.feed-status-live { background: #126b31; }
+.feed-status-connecting,
+.feed-status-reconnecting { background: #9a5a00; }
+.feed-status-authenticationfailed,
+.feed-status-disconnected,
+.feed-status-stale { background: #a11919; }

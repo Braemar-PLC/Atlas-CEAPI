@@ -66,6 +66,12 @@ app.Run();
 static void ConfigureDI(IServiceCollection services)
 {
     services.AddSingleton<IPricingStore, PricingStore>();
+    services.AddSingleton(TimeProvider.System);
+    services.AddSingleton<IFeedHealthStore>(sp =>
+    {
+        var options = sp.GetRequiredService<IOptions<FeedHealthOptions>>().Value;
+        return new FeedHealthStore(sp.GetRequiredService<TimeProvider>(), options.StaleAfter);
+    });
     services.AddSingleton<IPriceMessageHandler, PriceMessageHandler>();
     services.AddSingleton<IInboundParser, IceParser>();
     services.AddSingleton<IIceInterpreter, IceInterpreter>();
@@ -127,6 +133,12 @@ static void ConfigureOptions(IServiceCollection services, IConfiguration configu
     services.AddOptions<SseOptions>()
         .Bind(configuration.GetSection(SseOptions.Section))
         .Validate(o => o.HeartbeatInterval > TimeSpan.Zero, "Atlas.Web.Api:HeartbeatInterval is required")
+        .ValidateOnStart();
+
+    services.AddOptions<FeedHealthOptions>()
+        .Bind(configuration.GetSection(FeedHealthOptions.Section))
+        .Validate(o => o.StaleAfter > TimeSpan.FromSeconds(5),
+            $"{FeedHealthOptions.Section}:StaleAfter must exceed the five-second CEAPI heartbeat")
         .ValidateOnStart();
 
     // Without a month count every screen would be silently empty, so refuse to start instead.

@@ -4,6 +4,7 @@ package com.braemar.ceapi;
 import com.braemar.ceapi.config.Settings;
 import com.braemar.ceapi.config.SymbolListLoader;
 import com.braemar.ceapi.ice.IceConnectionManager;
+import com.braemar.ceapi.ice.FeedStatusEvent;
 import com.braemar.ceapi.ice.IceQuoteListener;
 import com.braemar.ceapi.ice.QuoteReceivedEvent;
 import com.braemar.ceapi.services.IceWebSocketBridge;
@@ -36,6 +37,7 @@ public class Main {
         var clientConnectedEvents = new Observable<ClientConnectedEvent>();
         var clientDisconnectedEvents = new Observable<ClientDisconnectedEvent>();
         var quoteEventEmitter = new Observable<QuoteReceivedEvent>();
+        var feedStatusEventEmitter = new Observable<FeedStatusEvent>();
         var statusEventEmitter = new Observable<StatusEvent>();
         var symbolEventEmitter = new Observable<SymbolEvent>();
 
@@ -43,9 +45,10 @@ public class Main {
         var iceQuoteListener = new IceQuoteListener(quoteEventEmitter, statusEventEmitter, symbolEventEmitter);
         var scheduler = IceConnectionManager.defaultScheduler();
         var iceManager = new IceConnectionManager(settings, factory, iceQuoteListener,
-                new SymbolListLoader(settings), scheduler);
+                new SymbolListLoader(settings), scheduler, feedStatusEventEmitter);
         // Contracts roll and option chains follow their futures during the day; pick up the changes.
         scheduler.scheduleAtFixedRate(iceManager::refreshSymbols, 1, 1, TimeUnit.HOURS);
+        scheduler.scheduleAtFixedRate(iceManager::publishStatus, 0, 5, TimeUnit.SECONDS);
 
         // 5) WebSocket server (binds the port; receives client/command events)
         var wsServer = new WebSocketServer(
@@ -63,6 +66,7 @@ public class Main {
                 clientConnectedEvents,
                 clientDisconnectedEvents,
                 quoteEventEmitter,
+                feedStatusEventEmitter,
                 statusEventEmitter,
                 symbolEventEmitter);
 

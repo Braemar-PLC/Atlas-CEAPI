@@ -1,5 +1,8 @@
 package com.braemar.ceapi.websocket;
 
+import com.braemar.ceapi.ice.FeedState;
+import com.braemar.ceapi.ice.FeedStatusEvent;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,6 +34,20 @@ class MessageBuilderTest {
         String result = MessageBuilder.status("Connected");
 
         assertEquals("[\"status\",\"Connected\"]", result);
+    }
+
+    @Test
+    void status_buildsStructuredHealthMessage() {
+        String result = MessageBuilder.status(new FeedStatusEvent(
+                FeedState.LIVE,
+                7,
+                Instant.parse("2026-09-30T13:00:00Z"),
+                "Connected",
+                3866));
+
+        assertTrue(result.contains("\"state\":\"LIVE\""));
+        assertTrue(result.contains("\"generation\":7"));
+        assertTrue(result.contains("\"subscribedSymbols\":3866"));
     }
 
     @Test

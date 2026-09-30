@@ -7,7 +7,9 @@ import com.esignal.jstandard.event.ConnectionEvent;
 import com.esignal.jstandard.event.ConnectionListener;
 import com.esignal.jstandard.managers.QuoteManager;
 import com.esignal.jstandard.managers.ResourceManagerFactory;
+import com.braemar.ceapi.utility.Observable;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +38,7 @@ public class IceConnectionManager {
     private final IceQuoteListener listener;
     private final Supplier<List<String>> symbolSource;
     private final ScheduledExecutorService scheduler;
+    private final Observable<FeedStatusEvent> feedStatusEvents;
 
     private final Object lock = new Object();
     private QuoteManager quoteManager;
@@ -46,12 +49,14 @@ public class IceConnectionManager {
     private int generation;
     private int attempt;
     private ScheduledFuture<?> pendingReconnect;
+    private FeedState feedState = FeedState.DISCONNECTED;
+    private String feedDetail = "No WebSocket client is connected";
 
     public IceConnectionManager(Settings settings,
             ResourceManagerFactory factory,
             IceQuoteListener listener,
             List<String> symbols) {
-        this(settings, factory, listener, () -> symbols, defaultScheduler());
+        this(settings, factory, listener, () -> symbols, defaultScheduler(), new Observable<>());
     }
 
     public IceConnectionManager(Settings settings,
@@ -59,11 +64,21 @@ public class IceConnectionManager {
             IceQuoteListener listener,
             Supplier<List<String>> symbolSource,
             ScheduledExecutorService scheduler) {
+        this(settings, factory, listener, symbolSource, scheduler, new Observable<>());
+    }
+
+    public IceConnectionManager(Settings settings,
+            ResourceManagerFactory factory,
+            IceQuoteListener listener,
+            Supplier<List<String>> symbolSource,
+            ScheduledExecutorService scheduler,
+            Observable<FeedStatusEvent> feedStatusEvents) {
         this.settings = settings;
         this.factory = factory;
         this.listener = listener;
         this.symbolSource = symbolSource;
         this.scheduler = scheduler;
+        this.feedStatusEvents = feedStatusEvents;
     }
 
     public static ScheduledExecutorService defaultScheduler() {
@@ -100,7 +115,10 @@ public class IceConnectionManager {
         synchronized (lock) {
             gen = ++generation;
             connected = false;
+            feedState = FeedState.CONNECTING;
+            feedDetail = "Connecting to ICE";
         }
+        publishStatus();
         teardown();
         try {
             QuoteManager qm = factory.createQuoteManager();
@@ -133,10 +151,13 @@ public class IceConnectionManager {
                     }
                     connected = true;
                     attempt = 0;
+                    feedState = FeedState.LIVE;
+                    feedDetail = "Connected to ICE";
                     cancelPendingReconnect();
                     callback = onConnected;
                 }
                 logger.info("ICE connected: " + e.getConnectedHost());
+                publishStatus();
                 if (callback != null) {
                     callback.run();
                 }
@@ -145,6 +166,13 @@ public class IceConnectionManager {
             @Override
             public void onConnecting(ConnectionEvent e) {
                 logger.info("ICE connecting...");
+                synchronized (lock) {
+                    if (gen == generation) {
+                        feedState = FeedState.CONNECTING;
+                        feedDetail = "Connecting to ICE";
+                    }
+                }
+                publishStatus();
             }
 
             @Override
@@ -153,8 +181,11 @@ public class IceConnectionManager {
                 synchronized (lock) {
                     if (gen == generation) {
                         connected = false;
+                        feedState = FeedState.RECONNECTING;
+                        feedDetail = "ICE disconnected";
                     }
                 }
+                publishStatus();
                 scheduleReconnect(gen);
             }
 
@@ -165,12 +196,22 @@ public class IceConnectionManager {
 
             @Override
             public void onError(ConnectionEvent e) {
-                logger.severe("ICE error: " + e.getStatusString());
+                String status = e.getStatusString();
+                logger.severe("ICE error: " + status);
                 synchronized (lock) {
                     if (gen == generation) {
                         connected = false;
+                        boolean authenticationFailed = status != null
+                                && status.contains("DBCAPI_ERROR_WRONG_USERNAMEPASSWORD");
+                        feedState = authenticationFailed
+                                ? FeedState.AUTHENTICATION_FAILED
+                                : FeedState.RECONNECTING;
+                        feedDetail = authenticationFailed
+                                ? "ICE rejected the configured credentials"
+                                : "ICE connection error: " + status;
                     }
                 }
+                publishStatus();
                 scheduleReconnect(gen);
             }
         };
@@ -230,6 +271,7 @@ public class IceConnectionManager {
             subscribed = symbols;
         }
         logger.info("Subscribed to " + ok + " of " + symbols.size() + " symbols");
+        publishStatus();
     }
 
     /**
@@ -286,9 +328,26 @@ public class IceConnectionManager {
             wanted = false;
             connected = false;
             generation++;
+            feedState = FeedState.DISCONNECTED;
+            feedDetail = "No WebSocket client is connected";
             cancelPendingReconnect();
         }
+        publishStatus();
         teardown();
+    }
+
+    /** Publishes the current session state. Called periodically so consumers can detect a silent relay failure. */
+    public void publishStatus() {
+        FeedStatusEvent event;
+        synchronized (lock) {
+            event = new FeedStatusEvent(
+                    feedState,
+                    generation,
+                    Instant.now(),
+                    feedDetail,
+                    subscribed.size());
+        }
+        feedStatusEvents.raise(event);
     }
 
     private void teardown() {

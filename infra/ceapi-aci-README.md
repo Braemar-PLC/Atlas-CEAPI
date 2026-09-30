@@ -13,6 +13,12 @@ Create or use these resources:
 - Resource group: `BraemarAtlas-Development-RG`
 - Azure Container Registry: one container registry
 - Azure Container Instance container group for CEAPI
+- VNet: `BraemarSecurities-Development-VNET`
+- Dedicated `CEAPI` subnet delegated to `Microsoft.ContainerInstance/containerGroups`
+- NAT Gateway with a static public IP attached to the CEAPI subnet
+
+The CEAPI subnet is configured with `defaultOutboundAccess: false`. ACI therefore has no implicit internet egress:
+outbound ICE connections use the NAT Gateway's stable public IP, while port 9002 remains private inside the VNet.
 
 ## Required GitHub secrets
 

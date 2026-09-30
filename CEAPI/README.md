@@ -18,7 +18,7 @@ All messages are raw arrays (text WebSocket frames):
 ```
 Refresh:  ["refresh","SYMBOL",[[fieldId,"value"],[fieldId,"value"],...]]
 Update:   ["update","SYMBOL",[[fieldId,"value"],...]]
-Status:   ["status","MESSAGE"]
+Status:   ["status",{"state":"LIVE","generation":3,"timestamp":"2026-09-30T13:00:00Z","detail":"Connected to ICE","subscribedSymbols":3866}]
 ```
 
 Commands from Web API:
@@ -37,7 +37,12 @@ resync
 | SYMBOLS_URL   | No       | —         | Web API address listing the symbols the screens need (`/api/screens/symbols`). Fetched on every ICE connect and re-checked hourly, so the list follows contract rolls and option chains without a restart |
 | WS_PORT       | No       | 9001      | WebSocket server port            |
 
-If ICE drops the session, CEAPI reopens it by itself (backing off 5s, 10s, 30s, 60s, then every 120s) for as long as the Web API is connected.
+CEAPI publishes feed health every five seconds. The Web API and browser use the generation and timestamp to
+reject old status events and mark displayed prices as non-current if the relay becomes silent.
+
+If ICE drops the session, CEAPI reopens it by itself (backing off 1s, 5s, 10s, 30s, 60s, then every 120s) for as
+long as the Web API is connected. An ICE credential rejection is published as `AUTHENTICATION_FAILED` rather than
+leaving the last prices looking live.
 
 ## Setup
 
