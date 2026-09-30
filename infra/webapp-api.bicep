@@ -100,6 +100,7 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
   properties: {
     serverFarmId: appServicePlan.id
     virtualNetworkSubnetId: appServiceIntegrationSubnet.id
+    vnetRouteAllEnabled: true
     httpsOnly: true
     siteConfig: {
       linuxFxVersion: 'DOTNETCORE|10.0'
