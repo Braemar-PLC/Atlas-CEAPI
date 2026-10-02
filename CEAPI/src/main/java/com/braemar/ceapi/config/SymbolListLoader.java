@@ -11,9 +11,8 @@ import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
- * The symbols to subscribe to. The Web API works them out from the desk screens (they roll as contracts expire
- * and the option chains follow the futures), so they are fetched from it on every ICE connect. Tried in order:
- * the URL (a few attempts, as the Web API may still be starting), the last list it gave, then the SYMBOLS setting.
+ * Parses the configured symbol list. CEAPI uses SYMBOLS only; the explicit URL constructor
+ * remains available for callers that opt into fetching a list.
  */
 public class SymbolListLoader implements Supplier<List<String>> {
 
@@ -33,7 +32,7 @@ public class SymbolListLoader implements Supplier<List<String>> {
     private volatile List<String> lastGood;
 
     public SymbolListLoader(Settings settings) {
-        this(settings.symbolsUrl, settings.symbols, SymbolListLoader::httpGet, Duration.ofSeconds(3));
+        this(null, settings.symbols, SymbolListLoader::httpGet, Duration.ofSeconds(3));
     }
 
     public SymbolListLoader(String url, String fallback, Fetcher fetcher, Duration retryDelay) {

@@ -40,11 +40,10 @@ param iceUsername string
 @secure()
 param icePassword string
 
-@description('The Web API address that lists the symbols its screens need (GET /api/screens/symbols). Empty to use symbols only.')
-param symbolsUrl string = ''
-
-@description('Container path to the complete symbol-list fallback embedded by the deployment workflow.')
-param symbolsFile string = 'C:\\app\\config\\symbols.csv'
+@description('Operator-configured comma-separated ICE subscriptions; no automatic expansion.')
+@secure()
+@minLength(1)
+param symbols string
 
 @description('The ACI container group name.')
 param ceapiContainerGroupName string = '${prefix}-ceapi-aci'
@@ -189,12 +188,8 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
               secureValue: icePassword
             }
             {
-              name: 'SYMBOLS_FILE'
-              value: symbolsFile
-            }
-            {
-              name: 'SYMBOLS_URL'
-              value: symbolsUrl
+              name: 'SYMBOLS'
+              secureValue: symbols
             }
             {
               name: 'WS_PORT'

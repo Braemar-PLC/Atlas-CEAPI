@@ -2,6 +2,11 @@ name: CEAPI - Deploy private ACA trial
 
 on:
   workflow_dispatch:
+    inputs:
+      image_digest:
+        description: 'Newly validated ceapi-linux image digest (sha256:...)'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +26,7 @@ jobs:
       APPSERVICE_NAME: ${{ secrets.APPSERVICE_NAME }}
       ACA_ENV: atlas-ceapi-aca-env
       ACA_APP: atlas-ceapi-aca
-      IMAGE_DIGEST: sha256:56371cc1d55c156b0f07fe1d10e0d990099be383f6414903e715c377c0d9ec83
+      IMAGE_DIGEST: ${{ inputs.image_digest }}
     steps:
       - uses: actions/checkout@v5
       - uses: azure/login@v2
@@ -32,6 +37,10 @@ jobs:
         shell: bash
         run: |
           az extension add --name containerapp --only-show-errors
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Supply the digest from the new Linux image validation/publish run."
+            exit 1
+          fi
           provider_state=$(az provider show --namespace Microsoft.App --query registrationState -o tsv)
           if [ "$provider_state" != Registered ]; then
             echo "::error::Microsoft.App is $provider_state. A subscription administrator must register it before deploying ACA."
@@ -42,14 +51,22 @@ jobs:
           echo "image=$registry/ceapi-linux@$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
           backend=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
             --query "[?name=='CEAPI_BACKEND'].value | [0]" -o tsv)
-          if [ "$backend" = aca ]; then
-            echo "::error::ACA is already the selected backend. This first-cutover workflow must not replace an active ICE session."
+          existing_app=$(az resource list -g "$RESOURCE_GROUP" --resource-type Microsoft.App/containerApps \
+            --query "[?name=='$ACA_APP'].id | [0]" -o tsv)
+          if [ -n "$existing_app" ]; then
+            echo "::error::The ACA app already exists. This recreation workflow must not replace an existing ICE relay."
             exit 1
           fi
           old_ip=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
             --query "[?name=='Ice__Endpoint'].value | [0]" -o tsv)
           old_port=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
             --query "[?name=='Ice__Port'].value | [0]" -o tsv)
+          if [ "$backend" = aca ]; then
+            # Deleted ACA leaves a stale endpoint; rollback must target the retained ACI.
+            old_ip=$(az container show -g "$RESOURCE_GROUP" -n "$CEAPI_CONTAINER_GROUP" \
+              --query ipAddress.ip -o tsv)
+            old_port=9002
+          fi
           test -n "$old_ip" && test -n "$old_port"
           echo "old_ip=$old_ip" >> "$GITHUB_OUTPUT"
           echo "old_port=$old_port" >> "$GITHUB_OUTPUT"
@@ -82,16 +99,23 @@ jobs:
           ICE_HOST: ${{ secrets.ICE_HOST }}
           ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
           ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
+          ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
           CONTAINER_IMAGE: ${{ steps.preflight.outputs.image }}
         run: |
           python - <<'PY'
           import os, json
           names = {"acrName":"ACR_NAME", "containerImage":"CONTAINER_IMAGE",
-                   "iceHost":"ICE_HOST", "iceUsername":"ICE_USERNAME", "icePassword":"ICE_PASSWORD"}
+                   "iceHost":"ICE_HOST", "iceUsername":"ICE_USERNAME", "icePassword":"ICE_PASSWORD",
+                   "symbols":"ICE_SYMBOLS"}
           params = {p: {"value": os.environ[e]} for p,e in names.items()}
           params["location"] = {"value": "uksouth"}
           if any(not p["value"] for p in params.values()):
               raise SystemExit("Required app parameter is empty")
+          symbols = {s.replace('"', '').strip() for s in os.environ["ICE_SYMBOLS"].split(",")}
+          symbols.discard("")
+          if not symbols:
+              raise SystemExit("ICE_SYMBOLS must contain at least one non-blank symbol")
+          print(f"Configured {len(symbols)} unique environment-variable symbols; no automatic expansion.")
           path = os.path.join(os.environ["RUNNER_TEMP"], "aca-parameters.json")
           with open(path, "w") as f:
               json.dump({"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",

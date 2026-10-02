@@ -4,13 +4,11 @@ WORKDIR /app
 
 COPY build/install/ceapi/lib/ /app/lib/
 COPY bin/*.so* /app/native/
-COPY config/symbols.csv /app/config/symbols.csv
 COPY validation/LinuxNativeSmoke.java /app/validation/LinuxNativeSmoke.java
 COPY validation/LinuxRelaySmoke.java /app/validation/LinuxRelaySmoke.java
 
 ENV LD_LIBRARY_PATH=/app/native
 ENV WS_PORT=9002
-ENV SYMBOLS_FILE=/app/config/symbols.csv
 
 RUN set -eu; \
     for library in /app/native/*.so*; do \

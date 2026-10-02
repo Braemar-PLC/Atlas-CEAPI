@@ -18,6 +18,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+      - name: Check configured subscriptions before publishing
+        if: ${{ inputs.publish_image }}
+        env:
+          ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
+        run: |
+          python - <<'PY'
+          import os
+          symbols = {s.replace('"', '').strip() for s in os.environ["ICE_SYMBOLS"].split(",")}
+          symbols.discard("")
+          if not symbols:
+              raise SystemExit("ICE_SYMBOLS must contain at least one non-blank symbol")
+          print(f"CONFIGURED_SYMBOL_COUNT={len(symbols)}")
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -38,6 +51,7 @@ jobs:
             -e ICE_HOST=validation.invalid \
             -e ICE_USERNAME=offline-validation \
             -e ICE_PASSWORD=offline-validation \
+            -e SYMBOLS=OFFLINE-VALIDATION \
             ceapi-linux:validation
           timeout 90 docker exec ceapi-linux-validation java /app/validation/LinuxRelaySmoke.java
       - name: Azure login for approved image publishing

@@ -46,8 +46,6 @@ public class Main {
         var scheduler = IceConnectionManager.defaultScheduler();
         var iceManager = new IceConnectionManager(settings, factory, iceQuoteListener,
                 new SymbolListLoader(settings), scheduler, feedStatusEventEmitter);
-        // Contracts roll and option chains follow their futures during the day; pick up the changes.
-        scheduler.scheduleAtFixedRate(iceManager::refreshSymbols, 1, 1, TimeUnit.HOURS);
         scheduler.scheduleAtFixedRate(iceManager::publishStatus, 0, 5, TimeUnit.SECONDS);
 
         // 5) WebSocket server (binds the port; receives client/command events)

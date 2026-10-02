@@ -1,15 +1,10 @@
 package com.braemar.ceapi.config;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.extension.ExtendWith;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
 import uk.org.webcompere.systemstubs.jupiter.SystemStub;
 import uk.org.webcompere.systemstubs.jupiter.SystemStubsExtension;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,9 +13,6 @@ class SettingsTest {
 
     @SystemStub
     private EnvironmentVariables env;
-
-    @TempDir
-    private Path tempDir;
 
     @Test
     void fromEnv_constructsCorrectly_whenAllVarsPresent() {
@@ -87,56 +79,71 @@ class SettingsTest {
     }
 
     @Test
-    void fromEnv_withASymbolsUrl_doesNotNeedSymbols() {
+    void fromEnv_withLegacyUrl_stillRequiresSymbols() {
         env.set("ICE_HOST", "myhost")
            .set("ICE_USERNAME", "user")
            .set("ICE_PASSWORD", "pass")
            .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols");
 
-        Settings s = Settings.fromEnv();
-
-        assertEquals("https://atlas.example/api/screens/symbols", s.symbolsUrl);
-        assertNull(s.symbols);
+        IllegalStateException ex = assertThrows(IllegalStateException.class, Settings::fromEnv);
+        assertTrue(ex.getMessage().contains("SYMBOLS"));
     }
 
     @Test
-    void fromEnv_usesSymbolsFileAsTheFallback() throws IOException {
-        Path symbolsFile = tempDir.resolve("symbols.csv");
-        Files.writeString(symbolsFile, "SYM1,SYM2");
+    void fromEnv_ignoresLegacyFileAndUrl_whenSymbolsConfigured() {
         env.set("ICE_HOST", "myhost")
            .set("ICE_USERNAME", "user")
            .set("ICE_PASSWORD", "pass")
            .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols")
-           .set("SYMBOLS", "OLD")
-           .set("SYMBOLS_FILE", symbolsFile.toString());
+           .set("SYMBOLS", "SYM1,SYM2")
+           .set("SYMBOLS_FILE", "missing.csv");
 
         Settings s = Settings.fromEnv();
 
         assertEquals("SYM1,SYM2", s.symbols);
+        assertEquals(java.util.List.of("SYM1", "SYM2"), new SymbolListLoader(s).get());
     }
 
     @Test
-    void fromEnv_failsClearlyWhenSymbolsFileCannotBeRead() {
-        Path missingFile = tempDir.resolve("missing.csv");
+    void fromEnv_withLegacyFile_stillRequiresSymbols() {
         env.set("ICE_HOST", "myhost")
            .set("ICE_USERNAME", "user")
            .set("ICE_PASSWORD", "pass")
            .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols")
-           .set("SYMBOLS_FILE", missingFile.toString());
+           .set("SYMBOLS_FILE", "missing.csv");
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, Settings::fromEnv);
 
-        assertTrue(ex.getMessage().contains("Could not read SYMBOLS_FILE"));
+        assertTrue(ex.getMessage().contains("Required env var not set: SYMBOLS"));
     }
 
     @Test
-    void fromEnv_withoutASymbolsUrl_leavesItNull() {
+    void fromEnv_rejectsBlankSymbolList() {
         env.set("ICE_HOST", "myhost")
            .set("ICE_USERNAME", "user")
            .set("ICE_PASSWORD", "pass")
-           .set("SYMBOLS", "SYM1");
+           .set("SYMBOLS", " , , \"\" ");
 
-        assertNull(Settings.fromEnv().symbolsUrl);
+        IllegalStateException ex = assertThrows(IllegalStateException.class, Settings::fromEnv);
+        assertTrue(ex.getMessage().contains("at least one non-blank symbol"));
+    }
+
+    @Test
+    void fromEnv_preserves203ConfiguredSymbols_withoutExpansion() {
+        String symbols = java.util.stream.IntStream.rangeClosed(1, 203)
+                .mapToObj(i -> "SYM" + i)
+                .collect(java.util.stream.Collectors.joining(","));
+        env.set("ICE_HOST", "myhost")
+           .set("ICE_USERNAME", "user")
+           .set("ICE_PASSWORD", "pass")
+           .set("SYMBOLS", symbols)
+           .set("SYMBOLS_URL", "https://atlas.example/api/screens/symbols")
+           .set("SYMBOLS_FILE", "missing.csv");
+
+        Settings settings = Settings.fromEnv();
+        assertEquals(symbols, settings.symbols);
+        assertEquals(SymbolListLoader.parse(symbols), new SymbolListLoader(settings).get());
+        assertEquals(203, new SymbolListLoader(settings).get().size());
     }
 
     @Test

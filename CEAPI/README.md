@@ -33,13 +33,17 @@ resync
 | ICE_HOST      | Yes      | —         | ICE host e.g. cm.dataservices.theice.com |
 | ICE_USERNAME  | Yes      | —         | ICE username                     |
 | ICE_PASSWORD  | Yes      | —         | ICE password                     |
-| SYMBOLS       | Yes, unless SYMBOLS_URL is set | — | Comma-separated fallback list for local runs. The Azure deployment uses `SYMBOLS_FILE` instead because the complete list exceeds GitHub's secret-size limit |
-| SYMBOLS_FILE  | No       | —         | Path to a comma-separated fallback list. Takes precedence over `SYMBOLS`; Azure includes the validated list at `C:\app\config\symbols.csv` |
-| SYMBOLS_URL   | No       | —         | Web API address listing the symbols the screens need (`/api/screens/symbols`). Fetched on every ICE connect and re-checked hourly, so the list follows contract rolls and option chains without a restart |
+| SYMBOLS       | Yes      | —         | Operator-configured comma-separated subscriptions. Azure supplies the `ICE_SYMBOLS` GitHub secret as `SYMBOLS`; blanks and duplicates are removed |
 | WS_PORT       | No       | 9001      | WebSocket server port            |
 
 CEAPI publishes feed health every five seconds. The Web API and browser use the generation and timestamp to
 reject old status events and mark displayed prices as non-current if the relay becomes silent.
+
+Subscriptions are environment-variable-only. Legacy `SYMBOLS_FILE` and `SYMBOLS_URL` values
+are ignored, and the images no longer embed the full 4,056-symbol list. `run-live.ps1` uses
+the configured `SYMBOLS` instead of querying the Web API. Update the operator list and restart
+CEAPI when contracts roll; the Web API's screen-symbol endpoint does not expand relay subscriptions.
+There is no arbitrary 203-symbol cap: the actual count is determined by `ICE_SYMBOLS`.
 
 If ICE drops an established session, the JStandard SDK's default automatic recovery owns the reconnect and CEAPI
 resubscribes when that same session reconnects. CEAPI does not create a competing `QuoteManager` while the SDK is
@@ -81,7 +85,7 @@ repeats the native SDK smoke test against the published image. The immutable ima
 is recorded in the workflow summary. Publishing never deploys or restarts ACI or ACA.
 
 The Linux image uses `/app/native` for both JNA loading and native dependency resolution,
-and `/app/config/symbols.csv` for the fallback symbols. It runs as a non-root user.
+and requires `SYMBOLS` at runtime. It runs as a non-root user.
 Passing this workflow establishes offline runtime compatibility, not ICE login or sustained
 market-data delivery. Those require a separately approved live trial.
 

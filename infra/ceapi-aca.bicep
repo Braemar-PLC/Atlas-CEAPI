@@ -9,6 +9,10 @@ param iceHost string
 param iceUsername string
 @secure()
 param icePassword string
+@description('Operator-configured comma-separated ICE subscriptions; no automatic expansion.')
+@secure()
+@minLength(1)
+param symbols string
 
 resource environment 'Microsoft.App/managedEnvironments@2025-01-01' existing = {
   name: environmentName
@@ -50,6 +54,10 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
           name: 'ice-password'
           value: icePassword
         }
+        {
+          name: 'ice-symbols'
+          value: symbols
+        }
       ]
       registries: [
         {
@@ -86,8 +94,8 @@ resource app 'Microsoft.App/containerApps@2025-01-01' = {
               value: '9002'
             }
             {
-              name: 'SYMBOLS_FILE'
-              value: '/app/config/symbols.csv'
+              name: 'SYMBOLS'
+              secretRef: 'ice-symbols'
             }
           ]
           probes: [

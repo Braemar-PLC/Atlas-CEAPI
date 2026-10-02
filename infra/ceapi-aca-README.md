@@ -16,8 +16,13 @@ immutable ACR digest. It does not rebuild the image or delete the existing ACI/N
   ACA still translates outbound connections; its managed egress is not a permanent single-IP guarantee.
 - Credentials are secret references. The existing registry credential is used for this
   isolated trial; it is never emitted in deployment outputs.
-- The embedded 4,056-symbol list is used deliberately for the trial. Live `SYMBOLS_URL`
-  is not enabled until the Web App access restrictions and ACA egress are validated.
+- `ICE_SYMBOLS` supplies the operator's comma-separated list through the `SYMBOLS` secret
+  reference. No full-list fallback or automatic Web API fetching is enabled. The workflow
+  reports the unique count and rejects an empty list; it does not impose a numeric cap.
+- Rebuild and publish the Linux image after the environment-only rollback. Supply its
+  validated digest in the manual deployment's `image_digest` input; do not reuse the old
+  trial image. If ACA was deleted, the workflow permits recreation despite a stale
+  `CEAPI_BACKEND=aca` setting and uses the retained ACI endpoint for failure rollback.
 
 ## Cutover and safety
 
