@@ -68,6 +68,19 @@ last prices looking live.
 
 ## Tests
 
+### Linux image validation for Azure Container Apps
+
+Run the manual **CEAPI - Validate Linux image** GitHub workflow on `Dev`. It runs Java tests,
+builds `Dockerfile.linux` for Linux amd64, checks native shared-library dependencies, and loads
+the actual ICE native API and creates a QuoteManager with container networking disabled.
+It also verifies that the relay starts on port 9002. It does not use real ICE credentials,
+connect to ICE, publish an image, or change Azure resources.
+
+The Linux image uses `/app/native` for both JNA loading and native dependency resolution,
+and `/app/config/symbols.csv` for the fallback symbols. It runs as a non-root user.
+Passing this workflow establishes offline runtime compatibility, not ICE login or sustained
+market-data delivery. Those require a separately approved live trial.
+
 ```bash / powershell
 ./gradlew test
 ```

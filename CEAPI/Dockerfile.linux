@@ -1,0 +1,25 @@
+FROM eclipse-temurin:17-jdk-jammy
+
+WORKDIR /app
+
+COPY build/install/ceapi/lib/ /app/lib/
+COPY bin/*.so* /app/native/
+COPY config/symbols.csv /app/config/symbols.csv
+COPY validation/LinuxNativeSmoke.java /app/validation/LinuxNativeSmoke.java
+COPY validation/LinuxRelaySmoke.java /app/validation/LinuxRelaySmoke.java
+
+ENV LD_LIBRARY_PATH=/app/native
+ENV WS_PORT=9002
+ENV SYMBOLS_FILE=/app/config/symbols.csv
+
+RUN set -eu; \
+    for library in /app/native/*.so*; do \
+      dependencies="$(ldd "$library")"; \
+      printf '%s\n%s\n' "$library" "$dependencies"; \
+      if printf '%s\n' "$dependencies" | grep -q 'not found'; then exit 1; fi; \
+    done; \
+    useradd --system --uid 10001 --home-dir /app ceapi
+
+USER 10001
+EXPOSE 9002
+CMD ["java", "-Djna.library.path=/app/native", "-cp", "/app/lib/*", "com.braemar.ceapi.Main"]

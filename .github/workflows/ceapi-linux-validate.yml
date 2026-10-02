@@ -1,0 +1,46 @@
+name: CEAPI - Validate Linux image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ceapi-linux-validation]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Test and package CEAPI
+        working-directory: CEAPI
+        run: bash gradlew --no-daemon test installDist
+      - name: Build Linux amd64 image
+        run: docker build --platform linux/amd64 -f CEAPI/Dockerfile.linux -t ceapi-linux:validation CEAPI
+      - name: Validate actual ICE native loader without network access
+        run: |
+          timeout 60 docker run --rm --network none ceapi-linux:validation \
+            java -Djna.library.path=/app/native -cp '/app/lib/*' /app/validation/LinuxNativeSmoke.java
+      - name: Validate relay startup without ICE credentials or external networking
+        shell: bash
+        run: |
+          docker run -d --name ceapi-linux-validation --network none \
+            -e ICE_HOST=validation.invalid \
+            -e ICE_USERNAME=offline-validation \
+            -e ICE_PASSWORD=offline-validation \
+            ceapi-linux:validation
+          timeout 90 docker exec ceapi-linux-validation java /app/validation/LinuxRelaySmoke.java
+      - name: Show validation logs and clean up
+        if: always()
+        shell: bash
+        run: |
+          if docker container inspect ceapi-linux-validation >/dev/null 2>&1; then
+            docker logs ceapi-linux-validation
+            docker rm -f ceapi-linux-validation
+          fi
