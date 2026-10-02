@@ -202,15 +202,13 @@ class IceConnectionManagerTest {
 
     @Test
     void droppedSession_isLeftToSdkAutomaticRecovery_andResubscribesWhenRestored() throws Exception {
-        var scheduler = new ManualScheduler();
-        var reconnecting = managerWith(scheduler, () -> List.of("SYM1"));
+        var reconnecting = new IceConnectionManager(settings, factory, listener, List.of("SYM1"));
         reconnecting.connect(reconnecting::subscribeAll);
         ConnectionListener connectionListener = captureConnectionListener();
         fire(connectionListener::onConnected);
 
         fire(connectionListener::onDisconnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.delays.isEmpty());
         verify(factory, times(1)).createQuoteManager();
 
         clearInvocations(quoteManager);
@@ -222,116 +220,116 @@ class IceConnectionManagerTest {
     }
 
     @Test
-    void startupFailures_backOffFurtherEachTime() throws Exception {
-        var scheduler = new ManualScheduler();
-        var reconnecting = managerWith(scheduler, List::of);
+    void startupFailure_isReportedWithoutApplicationRetry() throws Exception {
+        var statuses = new com.braemar.ceapi.utility.Observable<FeedStatusEvent>();
+        var events = new java.util.ArrayList<FeedStatusEvent>();
+        statuses.subscribe(events::add);
+        var reconnecting = new IceConnectionManager(settings, factory, listener, List.of(), statuses);
         when(factory.createQuoteManager()).thenThrow(new RuntimeException("ICE down"));
 
-        reconnecting.connect(mock(Runnable.class));
-        scheduler.runNext();
-        scheduler.runNext();
-
-        org.junit.jupiter.api.Assertions.assertEquals(
-                List.of(IceConnectionManager.BACKOFF_SECONDS[0],
-                        IceConnectionManager.BACKOFF_SECONDS[1],
-                        IceConnectionManager.BACKOFF_SECONDS[2]),
-                scheduler.delays);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> reconnecting.connect(mock(Runnable.class)));
+        verify(factory, times(1)).createQuoteManager();
+        assertEquals(FeedState.DISCONNECTED, events.get(events.size() - 1).state());
+        org.junit.jupiter.api.Assertions.assertTrue(
+                events.get(events.size() - 1).detail().contains("ICE down"));
     }
 
     @Test
     void sdkErrorThenDisconnect_doesNotScheduleCompetingReopen() throws Exception {
-        var scheduler = new ManualScheduler();
-        var reconnecting = managerWith(scheduler, List::of);
+        var reconnecting = new IceConnectionManager(settings, factory, listener, List.of());
         reconnecting.connect(mock(Runnable.class));
         ConnectionListener l = captureConnectionListener();
 
         fire(l::onError);
         fire(l::onDisconnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.tasks.isEmpty());
+        verify(factory, times(1)).createQuoteManager();
+        verify(quoteManager, never()).disconnect();
     }
 
     @Test
     void deliberateDisconnect_isNotReopened() throws Exception {
-        var scheduler = new ManualScheduler();
-        var reconnecting = managerWith(scheduler, List::of);
+        var reconnecting = new IceConnectionManager(settings, factory, listener, List.of());
         reconnecting.connect(mock(Runnable.class));
         ConnectionListener l = captureConnectionListener();
 
         reconnecting.disconnect();
         fire(l::onDisconnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.tasks.isEmpty());
+        verify(factory, times(1)).createQuoteManager();
+        org.junit.jupiter.api.Assertions.assertFalse(reconnecting.isConnected());
     }
 
     @Test
     void sessionRestoredByIce_isLeftOnTheSameQuoteManager() throws Exception {
-        var scheduler = new ManualScheduler();
-        var reconnecting = managerWith(scheduler, List::of);
+        var reconnecting = new IceConnectionManager(settings, factory, listener, List.of());
         reconnecting.connect(mock(Runnable.class));
         ConnectionListener l = captureConnectionListener();
         fire(l::onDisconnected);
         fire(l::onConnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.tasks.isEmpty());
         verify(factory, times(1)).createQuoteManager();
     }
 
     @Test
-    void refreshSymbols_subscribesOnlyTheNewOnes_andDropsTheGoneOnes() throws Exception {
-        var lists = new java.util.ArrayDeque<List<String>>(List.of(List.of("A", "B"), List.of("B", "C")));
-        var refreshing = managerWith(new ManualScheduler(), lists::poll);
-        refreshing.connect(refreshing::subscribeAll);
-        fire(captureConnectionListener()::onConnected);
-        clearInvocations(quoteManager);
+    void replacementSession_closesPreviousManagerBeforeCreatingNext() throws Exception {
+        manager.connect(manager::subscribeAll);
+        fireOnConnected();
+        clearInvocations(factory, quoteManager);
 
-        refreshing.refreshSymbols();
+        manager.connect(manager::subscribeAll);
 
-        verify(quoteManager).subscribe(eq("C"), eq(listener));
-        verify(quoteManager).unsubscribe(eq("A"), eq(listener));
-        verify(quoteManager, never()).subscribe(eq("B"), any());
-        verify(quoteManager, never()).unsubscribe(eq("B"), any());
+        InOrder order = inOrder(factory, quoteManager);
+        order.verify(quoteManager).unsubscribe(eq("SYM1"), eq(listener));
+        order.verify(quoteManager).unsubscribe(eq("SYM2"), eq(listener));
+        order.verify(quoteManager).disconnect();
+        order.verify(factory).createQuoteManager();
+        order.verify(quoteManager).connect(any(), any(ConnectionListener.class));
     }
 
     @Test
-    void refreshSymbols_whileOffline_doesNothing() {
-        @SuppressWarnings("unchecked")
-        java.util.function.Supplier<List<String>> source = mock(java.util.function.Supplier.class);
-        managerWith(new ManualScheduler(), source).refreshSymbols();
-        verify(source, never()).get();
+    void addressChange_isReportedWithoutClosingRelayOrCreatingAnotherManager() throws Exception {
+        var statuses = new com.braemar.ceapi.utility.Observable<FeedStatusEvent>();
+        var events = new java.util.ArrayList<FeedStatusEvent>();
+        statuses.subscribe(events::add);
+        var diagnostic = new IceConnectionManager(settings, factory, listener, List.of("SYM1"), statuses);
+        diagnostic.connect(diagnostic::subscribeAll);
+        ConnectionListener connectionListener = captureConnectionListener();
+        fire(connectionListener::onConnected);
+        when(connectionEvent.getStatusString()).thenReturn("DBCAPI_ERROR_ADDRESS_CHANGE");
+
+        connectionListener.onDisconnecting(connectionEvent);
+        connectionListener.onDisconnected(connectionEvent);
+        diagnostic.publishStatus();
+
+        verify(factory, times(1)).createQuoteManager();
+        verify(quoteManager, never()).disconnect();
+        FeedStatusEvent latest = events.get(events.size() - 1);
+        assertEquals(FeedState.DISCONNECTED, latest.state());
+        assertEquals(1, latest.subscribedSymbols());
+        org.junit.jupiter.api.Assertions.assertTrue(latest.detail().contains("ADDRESS_CHANGE"));
+    }
+
+    @Test
+    void staleConnectedCallback_afterDisconnect_doesNotResubscribe() throws Exception {
+        manager.connect(manager::subscribeAll);
+        ConnectionListener connectionListener = captureConnectionListener();
+        manager.disconnect();
+        clearInvocations(quoteManager);
+
+        fire(connectionListener::onConnected);
+
+        verify(quoteManager, never()).subscribe(any(), any());
+        org.junit.jupiter.api.Assertions.assertFalse(manager.isConnected());
     }
 
     // --- Helpers ---
-
-    private IceConnectionManager managerWith(ManualScheduler scheduler,
-            java.util.function.Supplier<List<String>> symbols) {
-        return new IceConnectionManager(settings, factory, listener, symbols, scheduler.executor);
-    }
 
     private void fire(java.util.function.Consumer<ConnectionEvent> callback) {
         when(connectionEvent.getConnectedHost()).thenReturn("icehost");
         when(connectionEvent.getStatusString()).thenReturn("status");
         callback.accept(connectionEvent);
-    }
-
-    /** Records scheduled work instead of running it, so a test can step through the backoff. */
-    private static final class ManualScheduler {
-        final List<Long> delays = new java.util.ArrayList<>();
-        final java.util.ArrayDeque<Runnable> tasks = new java.util.ArrayDeque<>();
-        final java.util.concurrent.ScheduledExecutorService executor =
-                mock(java.util.concurrent.ScheduledExecutorService.class);
-
-        ManualScheduler() {
-            when(executor.schedule(any(Runnable.class), anyLong(), any())).thenAnswer(inv -> {
-                tasks.add(inv.getArgument(0));
-                delays.add(inv.getArgument(1));
-                return mock(java.util.concurrent.ScheduledFuture.class);
-            });
-        }
-
-        void runNext() {
-            tasks.poll().run();
-        }
     }
 
     private ConnectionListener captureConnectionListener() throws Exception {

@@ -47,11 +47,18 @@ There is no arbitrary 203-symbol cap: the actual count is determined by `ICE_SYM
 
 If ICE drops an established session, the JStandard SDK's default automatic recovery owns the reconnect and CEAPI
 resubscribes when that same session reconnects. CEAPI does not create a competing `QuoteManager` while the SDK is
-recovering. The 1s, 5s, 10s, 30s, 60s, then 120s backoff is reserved for failures that occur before the SDK starts
-a connection. Disconnect status codes are included in the feed detail and container logs. Statuses that ICE marks
+recovering. For the connection-lifecycle diagnostic rollback, application-managed startup retry timers
+have also been removed: a startup failure is logged, published as disconnected, and propagated.
+Another explicit client connection is needed to initiate a new session.
+Disconnect status codes are included in the feed detail and container logs. Statuses that ICE marks
 as non-reconnectable, including address changes, entitlement failures, required upgrades, and invalid credentials,
 are not overridden by CEAPI. Credential rejection is published as `AUTHENTICATION_FAILED` rather than leaving the
 last prices looking live.
+
+The rollback restores the pre-September-30 connect/teardown sequence while retaining health heartbeats,
+generation checks for stale callbacks, and multi-client protection. The host, credentials and
+`SOCKTYPE_LEGACY` setting are unchanged from the earlier version. It does not disable the vendor
+SDK's own recovery or claim to resolve `DBCAPI_ERROR_ADDRESS_CHANGE`.
 
 ## Setup
 

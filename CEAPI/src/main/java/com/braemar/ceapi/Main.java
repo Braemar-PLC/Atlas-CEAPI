@@ -18,6 +18,7 @@ import com.esignal.jstandard.managers.ResourceManagerFactory;
 import io.github.cdimascio.dotenv.Dotenv;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 public class Main {
@@ -43,9 +44,13 @@ public class Main {
 
         // 4) ICE listeners & manager (no connect here)
         var iceQuoteListener = new IceQuoteListener(quoteEventEmitter, statusEventEmitter, symbolEventEmitter);
-        var scheduler = IceConnectionManager.defaultScheduler();
+        var scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread thread = new Thread(r, "ceapi-health");
+            thread.setDaemon(true);
+            return thread;
+        });
         var iceManager = new IceConnectionManager(settings, factory, iceQuoteListener,
-                new SymbolListLoader(settings), scheduler, feedStatusEventEmitter);
+                new SymbolListLoader(settings).get(), feedStatusEventEmitter);
         scheduler.scheduleAtFixedRate(iceManager::publishStatus, 0, 5, TimeUnit.SECONDS);
 
         // 5) WebSocket server (binds the port; receives client/command events)

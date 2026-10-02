@@ -10,45 +10,29 @@ import com.esignal.jstandard.managers.ResourceManagerFactory;
 import com.braemar.ceapi.utility.Observable;
 
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
- * Owns the ICE session. While a Web API client wants data ({@link #connect} until {@link #disconnect}), a session
- * that ICE drops or that fails to open is reopened with backoff, so the relay never has to be restarted by hand.
- * The symbol list is asked for on every (re)connect and on {@link #refreshSymbols}, so it follows the screens.
+ * Opens one SDK session on client connection and closes it on explicit disconnect.
+ * No application-managed reconnect timers; SDK recovery remains unchanged.
  */
 public class IceConnectionManager {
 
     private static final Logger logger = Logger.getLogger(IceConnectionManager.class.getName());
 
-    /** Seconds to wait before each reopen attempt; the last one repeats. The first is short because a dropped session
-     * means blank grids for a trader, and ICE usually accepts an immediate reopen. */
-    static final long[] BACKOFF_SECONDS = {1, 5, 10, 30, 60, 120};
-
     private final Settings settings;
     private final ResourceManagerFactory factory;
     private final IceQuoteListener listener;
-    private final Supplier<List<String>> symbolSource;
-    private final ScheduledExecutorService scheduler;
+    private final List<String> symbols;
     private final Observable<FeedStatusEvent> feedStatusEvents;
 
     private final Object lock = new Object();
     private QuoteManager quoteManager;
     private List<String> subscribed = List.of();
     private Runnable onConnected;
-    private boolean wanted;
     private boolean connected;
     private int generation;
-    private int attempt;
-    private ScheduledFuture<?> pendingReconnect;
     private FeedState feedState = FeedState.DISCONNECTED;
     private String feedDetail = "No WebSocket client is connected";
     private String disconnectStatus;
@@ -57,37 +41,19 @@ public class IceConnectionManager {
             ResourceManagerFactory factory,
             IceQuoteListener listener,
             List<String> symbols) {
-        this(settings, factory, listener, () -> symbols, defaultScheduler(), new Observable<>());
+        this(settings, factory, listener, symbols, new Observable<>());
     }
 
     public IceConnectionManager(Settings settings,
             ResourceManagerFactory factory,
             IceQuoteListener listener,
-            Supplier<List<String>> symbolSource,
-            ScheduledExecutorService scheduler) {
-        this(settings, factory, listener, symbolSource, scheduler, new Observable<>());
-    }
-
-    public IceConnectionManager(Settings settings,
-            ResourceManagerFactory factory,
-            IceQuoteListener listener,
-            Supplier<List<String>> symbolSource,
-            ScheduledExecutorService scheduler,
+            List<String> symbols,
             Observable<FeedStatusEvent> feedStatusEvents) {
         this.settings = settings;
         this.factory = factory;
         this.listener = listener;
-        this.symbolSource = symbolSource;
-        this.scheduler = scheduler;
+        this.symbols = List.copyOf(symbols);
         this.feedStatusEvents = feedStatusEvents;
-    }
-
-    public static ScheduledExecutorService defaultScheduler() {
-        return Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "ice-reconnect");
-            t.setDaemon(true);
-            return t;
-        });
     }
 
     /**
@@ -96,10 +62,7 @@ public class IceConnectionManager {
      */
     public void connect(Runnable onConnected) {
         synchronized (lock) {
-            wanted = true;
             this.onConnected = onConnected;
-            attempt = 0;
-            cancelPendingReconnect();
         }
         open();
     }
@@ -126,6 +89,7 @@ public class IceConnectionManager {
             QuoteManager qm = factory.createQuoteManager();
             synchronized (lock) {
                 if (gen != generation) {
+                    qm.disconnect();
                     return;
                 }
                 quoteManager = qm;
@@ -138,7 +102,15 @@ public class IceConnectionManager {
             qm.connect(cs, listenerFor(gen));
         } catch (Exception e) {
             logger.severe("Failed to connect to ICE: " + e);
-            scheduleReconnect(gen);
+            synchronized (lock) {
+                if (gen == generation) {
+                    feedState = FeedState.DISCONNECTED;
+                    feedDetail = "Failed to connect to ICE: " + e.getMessage();
+                }
+            }
+            publishStatus();
+            teardown();
+            throw new IllegalStateException("Failed to connect to ICE", e);
         }
     }
 
@@ -153,10 +125,8 @@ public class IceConnectionManager {
                     }
                     connected = true;
                     disconnectStatus = null;
-                    attempt = 0;
                     feedState = FeedState.LIVE;
                     feedDetail = "Connected to ICE";
-                    cancelPendingReconnect();
                     callback = onConnected;
                 }
                 logger.info("ICE connected: host=" + e.getConnectedHost() + ", generation=" + gen);
@@ -207,7 +177,7 @@ public class IceConnectionManager {
                 logger.warning("ICE disconnected: status=" + finalStatus
                         + ", generation=" + gen
                         + ", subscribedSymbols=" + subscribedCount
-                        + ". JStandard automatic recovery remains responsible for reconnecting.");
+                        + ". No application-managed reconnect is scheduled.");
                 publishStatus();
             }
 
@@ -272,34 +242,6 @@ public class IceConnectionManager {
     }
 
     /** Retries failures that occur before JStandard owns a live or recovering connection. */
-    private void scheduleReconnect(int gen) {
-        synchronized (lock) {
-            if (!wanted || gen != generation || pendingReconnect != null) {
-                return;
-            }
-            long delay = BACKOFF_SECONDS[Math.min(attempt, BACKOFF_SECONDS.length - 1)];
-            attempt++;
-            logger.warning("Reopening the ICE session in " + delay + "s");
-            pendingReconnect = scheduler.schedule(() -> {
-                synchronized (lock) {
-                    pendingReconnect = null;
-                    // ICE may have restored the session itself in the meantime.
-                    if (!wanted || gen != generation || connected) {
-                        return;
-                    }
-                }
-                open();
-            }, delay, TimeUnit.SECONDS);
-        }
-    }
-
-    private void cancelPendingReconnect() {
-        if (pendingReconnect != null) {
-            pendingReconnect.cancel(false);
-            pendingReconnect = null;
-        }
-    }
-
     /**
      * Unsubscribes all symbols then resubscribes to force a fresh snapshot.
      * Safe to call only when already connected.
@@ -310,9 +252,8 @@ public class IceConnectionManager {
         subscribeAll();
     }
 
-    /** Asks for the current symbol list and subscribes to every one of them. */
+    /** Subscribes to the fixed operator-configured list. */
     public void subscribeAll() {
-        List<String> symbols = symbolSource.get();
         QuoteManager qm;
         synchronized (lock) {
             qm = quoteManager;
@@ -326,41 +267,6 @@ public class IceConnectionManager {
         }
         logger.info("Subscribed to " + ok + " of " + symbols.size() + " symbols");
         publishStatus();
-    }
-
-    /**
-     * Asks for the symbol list again and changes only the difference: new symbols (a contract rolled in, an
-     * option chain moved with its future) are subscribed, ones no longer listed are dropped. No-op while offline.
-     */
-    public void refreshSymbols() {
-        QuoteManager qm;
-        List<String> before;
-        synchronized (lock) {
-            if (!connected) {
-                return;
-            }
-            qm = quoteManager;
-            before = subscribed;
-        }
-        List<String> now = symbolSource.get();
-        if (now.isEmpty()) {
-            return;
-        }
-        Set<String> nowSet = new HashSet<>(now);
-        Set<String> beforeSet = new HashSet<>(before);
-        List<String> added = now.stream().filter(s -> !beforeSet.contains(s)).toList();
-        List<String> removed = before.stream().filter(s -> !nowSet.contains(s)).toList();
-        if (added.isEmpty() && removed.isEmpty()) {
-            return;
-        }
-        unsubscribe(qm, removed);
-        subscribe(qm, added);
-        synchronized (lock) {
-            if (quoteManager == qm) {
-                subscribed = now;
-            }
-        }
-        logger.info("Symbol list refreshed: " + added.size() + " added, " + removed.size() + " removed");
     }
 
     public void unsubscribeAll() {
@@ -379,12 +285,10 @@ public class IceConnectionManager {
     /** Closes the session on purpose: no reconnect until the next {@link #connect}. */
     public void disconnect() {
         synchronized (lock) {
-            wanted = false;
             connected = false;
             generation++;
             feedState = FeedState.DISCONNECTED;
             feedDetail = "No WebSocket client is connected";
-            cancelPendingReconnect();
         }
         publishStatus();
         teardown();
