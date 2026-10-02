@@ -201,33 +201,34 @@ class IceConnectionManagerTest {
     // --- Reconnect ---
 
     @Test
-    void droppedSession_isLeftToSdkAutomaticRecovery_andResubscribesWhenRestored() throws Exception {
+    void droppedSession_isReopenedAfterTheFirstBackoff_andResubscribes() throws Exception {
         var scheduler = new ManualScheduler();
         var reconnecting = managerWith(scheduler, () -> List.of("SYM1"));
         reconnecting.connect(reconnecting::subscribeAll);
-        ConnectionListener connectionListener = captureConnectionListener();
-        fire(connectionListener::onConnected);
+        ConnectionListener first = captureConnectionListener();
+        fire(first::onConnected);
 
-        fire(connectionListener::onDisconnected);
+        fire(first::onDisconnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.delays.isEmpty());
-        verify(factory, times(1)).createQuoteManager();
-
-        clearInvocations(quoteManager);
-        fire(connectionListener::onConnecting);
-        fire(connectionListener::onConnected);
-
-        verify(quoteManager).subscribe(eq("SYM1"), eq(listener));
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(IceConnectionManager.BACKOFF_SECONDS[0]), scheduler.delays);
+        QuoteManager second = mock(QuoteManager.class);
+        when(factory.createQuoteManager()).thenReturn(second);
+        scheduler.runNext();
+        ArgumentCaptor<ConnectionListener> cap = ArgumentCaptor.forClass(ConnectionListener.class);
+        verify(second).connect(any(), cap.capture());
+        fire(cap.getValue()::onConnected);
+        verify(second).subscribe(eq("SYM1"), eq(listener));
         org.junit.jupiter.api.Assertions.assertTrue(reconnecting.isConnected());
     }
 
     @Test
-    void startupFailures_backOffFurtherEachTime() throws Exception {
+    void failedReopens_backOffFurtherEachTime() throws Exception {
         var scheduler = new ManualScheduler();
         var reconnecting = managerWith(scheduler, List::of);
+        reconnecting.connect(mock(Runnable.class));
+        fire(captureConnectionListener()::onError);
         when(factory.createQuoteManager()).thenThrow(new RuntimeException("ICE down"));
 
-        reconnecting.connect(mock(Runnable.class));
         scheduler.runNext();
         scheduler.runNext();
 
@@ -239,7 +240,7 @@ class IceConnectionManagerTest {
     }
 
     @Test
-    void sdkErrorThenDisconnect_doesNotScheduleCompetingReopen() throws Exception {
+    void errorThenDisconnect_schedulesOnlyOneReopen() throws Exception {
         var scheduler = new ManualScheduler();
         var reconnecting = managerWith(scheduler, List::of);
         reconnecting.connect(mock(Runnable.class));
@@ -248,7 +249,7 @@ class IceConnectionManagerTest {
         fire(l::onError);
         fire(l::onDisconnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.tasks.isEmpty());
+        org.junit.jupiter.api.Assertions.assertEquals(1, scheduler.tasks.size());
     }
 
     @Test
@@ -265,7 +266,7 @@ class IceConnectionManagerTest {
     }
 
     @Test
-    void sessionRestoredByIce_isLeftOnTheSameQuoteManager() throws Exception {
+    void sessionRestoredByIceBeforeTheBackoff_isLeftAlone() throws Exception {
         var scheduler = new ManualScheduler();
         var reconnecting = managerWith(scheduler, List::of);
         reconnecting.connect(mock(Runnable.class));
@@ -273,7 +274,8 @@ class IceConnectionManagerTest {
         fire(l::onDisconnected);
         fire(l::onConnected);
 
-        org.junit.jupiter.api.Assertions.assertTrue(scheduler.tasks.isEmpty());
+        scheduler.runNext();
+
         verify(factory, times(1)).createQuoteManager();
     }
 

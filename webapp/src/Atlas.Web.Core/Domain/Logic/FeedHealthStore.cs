@@ -27,22 +27,11 @@ public sealed class FeedHealthStore : IFeedHealthStore, IDisposable
             0));
     }
 
-    public void RelayConnecting()
+    public void RelayConnecting() => Publish(current => current with
     {
-        lock (_writeLock)
-        {
-            // CEAPI generations are local to its process and reset when the container restarts.
-            _lastHeartbeatReceivedAt = null;
-            _subject.OnNext(_subject.Value with
-            {
-                State = FeedState.Connecting,
-                Generation = 0,
-                RelayTimestamp = null,
-                Detail = "Connecting to the CEAPI relay",
-                SubscribedSymbols = 0
-            });
-        }
-    }
+        State = FeedState.Connecting,
+        Detail = "Connecting to the CEAPI relay"
+    });
 
     public void RelayDisconnected(string detail) => Publish(current => current with
     {

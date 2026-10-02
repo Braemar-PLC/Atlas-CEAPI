@@ -22,12 +22,6 @@ param containerImage string
 @description('The port used by the Java WebSocket server in CEAPI.')
 param ceapiPort int = 9002
 
-@description('vCPU requested by the CEAPI container.')
-param ceapiCpu int = 2
-
-@description('Memory in GB requested by the CEAPI container.')
-param ceapiMemoryInGB int = 4
-
 @description('The ICE host to connect to, for example cm*.dataservices.theice.com.')
 @secure()
 param iceHost string
@@ -40,11 +34,11 @@ param iceUsername string
 @secure()
 param icePassword string
 
+@description('Comma-separated list of ICE symbols to subscribe to; only used when symbolsUrl cannot be reached.')
+param symbols string = 'TFM 26J-ICN'
+
 @description('The Web API address that lists the symbols its screens need (GET /api/screens/symbols). Empty to use symbols only.')
 param symbolsUrl string = ''
-
-@description('Container path to the complete symbol-list fallback embedded by the deployment workflow.')
-param symbolsFile string = 'C:\\app\\config\\symbols.csv'
 
 @description('The ACI container group name.')
 param ceapiContainerGroupName string = '${prefix}-ceapi-aci'
@@ -189,8 +183,8 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
               secureValue: icePassword
             }
             {
-              name: 'SYMBOLS_FILE'
-              value: symbolsFile
+              name: 'SYMBOLS'
+              value: symbols
             }
             {
               name: 'SYMBOLS_URL'
@@ -203,8 +197,8 @@ resource ceapiContainerGroup 'Microsoft.ContainerInstance/containerGroups@2023-0
           ]
           resources: {
             requests: {
-              cpu: ceapiCpu
-              memoryInGB: ceapiMemoryInGB
+              cpu: 1
+              memoryInGB: 2
             }
           }
         }

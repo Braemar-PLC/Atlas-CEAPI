@@ -51,7 +51,6 @@ public class IceConnectionManager {
     private ScheduledFuture<?> pendingReconnect;
     private FeedState feedState = FeedState.DISCONNECTED;
     private String feedDetail = "No WebSocket client is connected";
-    private String disconnectStatus;
 
     public IceConnectionManager(Settings settings,
             ResourceManagerFactory factory,
@@ -116,7 +115,6 @@ public class IceConnectionManager {
         synchronized (lock) {
             gen = ++generation;
             connected = false;
-            disconnectStatus = null;
             feedState = FeedState.CONNECTING;
             feedDetail = "Connecting to ICE";
         }
@@ -152,14 +150,13 @@ public class IceConnectionManager {
                         return;
                     }
                     connected = true;
-                    disconnectStatus = null;
                     attempt = 0;
                     feedState = FeedState.LIVE;
                     feedDetail = "Connected to ICE";
                     cancelPendingReconnect();
                     callback = onConnected;
                 }
-                logger.info("ICE connected: host=" + e.getConnectedHost() + ", generation=" + gen);
+                logger.info("ICE connected: " + e.getConnectedHost());
                 publishStatus();
                 if (callback != null) {
                     callback.run();
@@ -168,110 +165,59 @@ public class IceConnectionManager {
 
             @Override
             public void onConnecting(ConnectionEvent e) {
-                FeedState state;
+                logger.info("ICE connecting...");
                 synchronized (lock) {
                     if (gen == generation) {
-                        state = disconnectStatus == null ? FeedState.CONNECTING : FeedState.RECONNECTING;
-                        feedState = state;
-                        feedDetail = state == FeedState.CONNECTING
-                                ? "Connecting to ICE"
-                                : "ICE reconnecting after: " + disconnectStatus;
-                    } else {
-                        return;
+                        feedState = FeedState.CONNECTING;
+                        feedDetail = "Connecting to ICE";
                     }
                 }
-                logger.info(state == FeedState.CONNECTING ? "ICE connecting..." : "ICE reconnecting...");
                 publishStatus();
             }
 
             @Override
             public void onDisconnected(ConnectionEvent e) {
-                String status = statusOf(e);
-                int subscribedCount;
-                String finalStatus;
+                logger.warning("ICE disconnected");
                 synchronized (lock) {
-                    if (gen != generation) {
-                        return;
+                    if (gen == generation) {
+                        connected = false;
+                        feedState = FeedState.RECONNECTING;
+                        feedDetail = "ICE disconnected";
                     }
-                    connected = false;
-                    if (disconnectStatus == null) {
-                        disconnectStatus = status;
-                    }
-                    feedState = isNoReconnectStatus(disconnectStatus)
-                            ? FeedState.DISCONNECTED
-                            : FeedState.RECONNECTING;
-                    feedDetail = "ICE disconnected: " + disconnectStatus;
-                    finalStatus = disconnectStatus;
-                    subscribedCount = subscribed.size();
                 }
-                logger.warning("ICE disconnected: status=" + finalStatus
-                        + ", generation=" + gen
-                        + ", subscribedSymbols=" + subscribedCount
-                        + ". JStandard automatic recovery remains responsible for reconnecting.");
                 publishStatus();
+                scheduleReconnect(gen);
             }
 
             @Override
             public void onDisconnecting(ConnectionEvent e) {
-                String status = statusOf(e);
-                int subscribedCount;
-                synchronized (lock) {
-                    if (gen != generation) {
-                        return;
-                    }
-                    connected = false;
-                    disconnectStatus = status;
-                    feedState = isNoReconnectStatus(status)
-                            ? FeedState.DISCONNECTED
-                            : FeedState.RECONNECTING;
-                    feedDetail = "ICE disconnecting: " + status;
-                    subscribedCount = subscribed.size();
-                }
-                logger.warning("ICE disconnecting: status=" + status
-                        + ", generation=" + gen
-                        + ", subscribedSymbols=" + subscribedCount);
-                publishStatus();
+                logger.info("ICE disconnecting: " + e.getStatusString());
             }
 
             @Override
             public void onError(ConnectionEvent e) {
-                String status = statusOf(e);
+                String status = e.getStatusString();
+                logger.severe("ICE error: " + status);
                 synchronized (lock) {
                     if (gen == generation) {
                         connected = false;
-                        disconnectStatus = status;
                         boolean authenticationFailed = status != null
                                 && status.contains("DBCAPI_ERROR_WRONG_USERNAMEPASSWORD");
                         feedState = authenticationFailed
                                 ? FeedState.AUTHENTICATION_FAILED
-                                : isNoReconnectStatus(status)
-                                        ? FeedState.DISCONNECTED
-                                        : FeedState.RECONNECTING;
+                                : FeedState.RECONNECTING;
                         feedDetail = authenticationFailed
                                 ? "ICE rejected the configured credentials"
                                 : "ICE connection error: " + status;
                     }
                 }
-                logger.severe("ICE error: status=" + status + ", generation=" + gen);
                 publishStatus();
+                scheduleReconnect(gen);
             }
         };
     }
 
-    private static String statusOf(ConnectionEvent event) {
-        String status = event.getStatusString();
-        return status == null || status.isBlank() ? "UNKNOWN" : status;
-    }
-
-    private static boolean isNoReconnectStatus(String status) {
-        return status.contains("DBCAPI_ERROR_MUST_UPGRADE")
-                || status.contains("DBCAPI_ERROR_WRONG_USERNAMEPASSWORD")
-                || status.contains("DBCAPI_ERROR_NOT_ENTITLED")
-                || status.contains("DBCAPI_ERROR_ADDRESS_CHANGE")
-                || status.contains("DBCAPI_ERROR_NOT_ENDOFDAY");
-    }
-
-    /** Retries failures that occur before JStandard owns a live or recovering connection. */
+    /** Reopens the session later, unless it was closed on purpose, is already due to reopen, or has come back. */
     private void scheduleReconnect(int gen) {
         synchronized (lock) {
             if (!wanted || gen != generation || pendingReconnect != null) {

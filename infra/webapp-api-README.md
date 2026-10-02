@@ -20,7 +20,7 @@ since a second instance would hold its own independent in-memory state and its o
 4. `Program.cs` processes App Service forwarded headers before HTTPS redirection, serves `wwwroot/` via
    `UseStaticFiles()`, and falls back unmatched routes to `index.html` via
    `MapFallbackToFile`, so client-side routes (e.g. `/admin`, `/natgas`) work on a full page load/refresh.
-5. `Ice__Endpoint` / `Ice__Port` app settings are set to the CEAPI ACI container's private IP/port, looked up
+5. `Ice__Endpoint` / `Ice__Port` app settings are set to the CEAPI ACI container's public FQDN/port, looked up
    at deploy time with `az container show`.
 6. App Service Authentication (Easy Auth) is configured for the single-tenant Entra app. Anonymous requests can
    load the SPA sign-in page; the API applies its own authenticated-user fallback policy.
@@ -33,8 +33,7 @@ since a second instance would hold its own independent in-memory state and its o
 - Resource group for the App Service (Site) itself: `BraemarAtlas-Development-RG` (same as CEAPI) — passed as
   `RESOURCE_GROUP`.
 - The CEAPI ACI container group must already be deployed (see `infra/ceapi-aci-README.md`) — this workflow reads
-  its private IP to configure the API's ICE endpoint. App Service VNet integration connects to the CEAPI subnet;
-  `vnetRouteAllEnabled=true` preserves outbound application routing through the VNet.
+  its FQDN to configure the API's ICE endpoint.
 - The Entra app registration must assign its admin app role to users who manage desks. The Bicep default role
   value is `Admin` (`Auth__AdminRole`); it must match the role's **value**, not just its display name, or sign-in
   can succeed while admin operations return `403`.
@@ -96,11 +95,6 @@ Then browse to the API's URL (e.g. `https://localhost:7001`) — it should serve
 
 ## Notes
 
-- CEAPI session generation numbers are local to the Java process, not globally increasing. On every relay
-  connection attempt, the Web App resets its health generation baseline and clears previous relay metadata,
-  while retaining the last quote timestamp. This allows health messages from a restarted container to be accepted
-  without allowing older generations within the same connection to overwrite newer status. ICE terminal errors
-  remain visible; resetting the health baseline does not retry an ICE session rejected with `DBCAPI_ERROR_ADDRESS_CHANGE`.
 - `WEBSITE_RUN_FROM_PACKAGE=1` runs the app directly from the deployed zip (read-only, faster cold start).
 - `WEBSITE_ENABLE_APP_SERVICE_STORAGE=true` and `Database__Path=/home/data/atlas.db` keep the SQLite file on
   App Service's persistent `/home` storage instead of the read-only package.

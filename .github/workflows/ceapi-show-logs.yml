@@ -1,7 +1,8 @@
 name: CEAPI - Show container logs
 
-# Read-only manual diagnostics for container state, private relay configuration,
-# Web App connection failures and ICE lifecycle events. Does not restart or deploy.
+# Manual diagnostic workflow: dumps the current CEAPI container logs without touching the
+# build/deploy pipeline. Use this to inspect ICE connection status (IceConnectionManager logs
+# "ICE connecting...", "ICE connected: <host>", or "ICE error: <status>" on every attempt).
 on:
   workflow_dispatch:
 
@@ -15,7 +16,6 @@ jobs:
     env:
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
-      APPSERVICE_NAME: ${{ secrets.APPSERVICE_NAME }}
 
     steps:
       - name: Azure login using service principal
@@ -29,80 +29,8 @@ jobs:
           az container show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CEAPI_CONTAINER_GROUP" \
-            --query "{state:instanceView.state, ip:ipAddress.ip, addressType:ipAddress.type, ports:ipAddress.ports, containers:containers[].{name:name,current:instanceView.currentState,previous:instanceView.previousState,restarts:instanceView.restartCount}, events:containers[0].instanceView.events}" \
+            --query "{state:instanceView.state, ip:ipAddress.ip, fqdn:ipAddress.fqdn, events:containers[0].instanceView.events}" \
             --output json
-
-      - name: Show Web App private relay configuration
-        shell: bash
-        run: |
-          az webapp show \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$APPSERVICE_NAME" \
-            --query "{state:state, subnet:virtualNetworkSubnetId, routeAll:vnetRouteAllEnabled, outboundVnetRouting:outboundVnetRouting}" \
-            --output json
-          az webapp config appsettings list \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$APPSERVICE_NAME" \
-            --query "[?name=='Ice__Endpoint' || name=='Ice__Port' || name=='WEBSITE_VNET_ROUTE_ALL'].{name:name,value:value}" \
-            --output json
-
-      - name: Query Web App relay connection errors
-        continue-on-error: true
-        shell: bash
-        run: |
-          APP_ID=$(az monitor app-insights component show \
-            --resource-group "$RESOURCE_GROUP" \
-            --app atlas-api-ai \
-            --query appId -o tsv)
-          az monitor app-insights query \
-            --app "$APP_ID" \
-            --analytics-query "traces | where timestamp > ago(2h) | where message contains 'CEAPI relay' | top 30 by timestamp desc | project timestamp, message, severityLevel, cloud_RoleInstance" \
-            --output json
-          az monitor app-insights query \
-            --app "$APP_ID" \
-            --analytics-query "exceptions | where timestamp > ago(2h) | where outerMessage contains 'CEAPI' or innermostMessage contains '10.10.14.4' | top 20 by timestamp desc | project timestamp, outerMessage, innermostMessage, cloud_RoleInstance" \
-            --output json
-
-      - name: Show potential duplicate relays and CEAPI outbound routing
-        shell: bash
-        run: |
-          echo "--- Container groups in the authenticated subscription (no credentials) ---"
-          az container list \
-            --query "[].{name:name,resourceGroup:resourceGroup,state:instanceView.state,ip:ipAddress.ip,images:containers[].image}" \
-            --output json
-          subnet_id=$(az container show \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$CEAPI_CONTAINER_GROUP" \
-            --query "subnetIds[0].id" --output tsv)
-          if [ -z "$subnet_id" ]; then
-            echo "::error::CEAPI is not attached to a subnet."
-            exit 1
-          fi
-          az network vnet subnet show --ids "$subnet_id" \
-            --query "{prefix:addressPrefix,natGateway:natGateway.id,routeTable:routeTable.id,nsg:networkSecurityGroup.id,defaultOutboundAccess:defaultOutboundAccess}" \
-            --output json
-          nat_id=$(az network vnet subnet show --ids "$subnet_id" \
-            --query natGateway.id --output tsv)
-          if [ -z "$nat_id" ]; then
-            echo "::error::CEAPI subnet has no NAT Gateway."
-            exit 1
-          fi
-          az network nat gateway show --ids "$nat_id" \
-            --query "{state:provisioningState,publicIPs:publicIpAddresses[].id,publicIPPrefixes:publicIpPrefixes[].id}" \
-            --output json
-          for ip_id in $(az network nat gateway show --ids "$nat_id" \
-            --query "publicIpAddresses[].id" --output tsv); do
-            az network public-ip show --ids "$ip_id" \
-              --query "{name:name,ip:ipAddress,allocation:publicIPAllocationMethod,state:provisioningState}" \
-              --output json
-          done
-          route_id=$(az network vnet subnet show --ids "$subnet_id" \
-            --query routeTable.id --output tsv)
-          if [ -n "$route_id" ]; then
-            az network route-table show --ids "$route_id" \
-              --query "{name:name,routes:routes[].{prefix:addressPrefix,nextHop:nextHopType,nextHopIP:nextHopIpAddress}}" \
-              --output json
-          fi
 
       - name: Show CEAPI container logs (az container logs — not supported for Windows containers, expect empty)
         shell: bash
@@ -125,20 +53,16 @@ jobs:
             --workspace "$WORKSPACE_ID" \
             --analytics-query "search * | distinct \$table | take 50" \
             --output table || true
-          echo "--- ContainerInstanceLog_CL (latest 300 diagnostic lines, noisy per-symbol lines left out, oldest first) ---"
+          echo "--- ContainerInstanceLog_CL (latest 150 lines, per-symbol subscribe lines left out, oldest first) ---"
           az monitor log-analytics query \
             --workspace "$WORKSPACE_ID" \
-            --analytics-query "ContainerInstanceLog_CL | where Message !contains 'Subscribed: ' and Message !contains 'ICE symbol event:' and Message !contains 'DBCAPI_ERROR_NOTCONNECTED' | top 300 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
+            --analytics-query "ContainerInstanceLog_CL | where Message !contains 'Subscribed: ' | top 150 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
             --output tsv || true
-          echo "--- Latest CEAPI connection lifecycle messages (excluding two-line logger headers) ---"
-          az monitor log-analytics query \
-            --workspace "$WORKSPACE_ID" \
-            --analytics-query "ContainerInstanceLog_CL | where Message contains 'ICE connected:' or Message contains 'ICE disconnecting:' or Message contains 'ICE disconnected:' or Message contains 'ICE connecting...' or Message contains 'ICE reconnecting...' or Message contains 'ICE error:' or Message contains 'WebSocket client' or Message contains 'Subscribed to ' or Message contains 'Failed to connect to ICE' or Message contains 'Reopening the ICE session' | top 40 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
-            --output tsv
 
-      - name: Explain private relay probe scope
+      - name: Probe the relay port from outside
         shell: bash
         run: |
-          echo "The GitHub runner is outside the VNet and cannot test the private CEAPI port."
-          echo "Run curl -v --connect-timeout 5 --max-time 10 http://10.10.14.4:9002/ from the App Service SSH terminal."
-          echo "Connected followed by WebSocket Upgrade Failure proves TCP reachability, not ICE connectivity."
+          FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$CEAPI_CONTAINER_GROUP" --query ipAddress.fqdn -o tsv)
+          PORT=$(az container show --resource-group "$RESOURCE_GROUP" --name "$CEAPI_CONTAINER_GROUP" --query "ipAddress.ports[0].port" -o tsv)
+          echo "Relay: $FQDN:$PORT"
+          if timeout 5 bash -c "</dev/tcp/$FQDN/$PORT"; then echo "Relay port is OPEN"; else echo "Relay port is CLOSED or unreachable"; fi

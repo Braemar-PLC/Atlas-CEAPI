@@ -1,9 +1,5 @@
 package com.braemar.ceapi.config;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 public class Settings {
 
     public final String iceHost;
@@ -32,26 +28,13 @@ public class Settings {
     public static Settings fromEnv() {
         String iceHost = requireEnv("ICE_HOST");
         String symbolsUrl = optionalEnv("SYMBOLS_URL");
-        String symbols = loadSymbolsFallback(symbolsUrl);
+        // With a URL the list comes from the Web API; SYMBOLS is then only the fallback for when it cannot answer.
+        String symbols = symbolsUrl != null ? optionalEnv("SYMBOLS") : requireEnv("SYMBOLS");
         String username = requireEnv("ICE_USERNAME");
         String password = requireEnv("ICE_PASSWORD");
         String portStr = optionalEnv("WS_PORT");
         int port = portStr != null ? Integer.parseInt(portStr) : 9001;
         return new Settings(iceHost, username, password, symbols, symbolsUrl, port);
-    }
-
-    private static String loadSymbolsFallback(String symbolsUrl) {
-        String symbolsFile = optionalEnv("SYMBOLS_FILE");
-        if (symbolsFile != null) {
-            try {
-                return Files.readString(Path.of(symbolsFile));
-            } catch (IOException e) {
-                throw new IllegalStateException("Could not read SYMBOLS_FILE: " + symbolsFile, e);
-            }
-        }
-
-        // With a URL the list comes from the Web API; SYMBOLS is then only the fallback for when it cannot answer.
-        return symbolsUrl != null ? optionalEnv("SYMBOLS") : requireEnv("SYMBOLS");
     }
 
     private static String requireEnv(String name) {

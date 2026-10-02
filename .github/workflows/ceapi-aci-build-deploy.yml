@@ -27,7 +27,8 @@ jobs:
       ICE_HOST: ${{ secrets.ICE_HOST }}
       ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
       ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
-      # CEAPI asks the Web App for its symbol list on every ICE connect; the workflow also embeds a validated fallback.
+      ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
+      # CEAPI asks the Web App for its symbol list on every ICE connect; ICE_SYMBOLS is the fallback.
       SYMBOLS_URL: 'https://atlas-webapp-braemar.azurewebsites.net/api/screens/symbols'
 
     steps:
@@ -64,7 +65,6 @@ jobs:
             'CEAPI/lib/ICEesig-jstandard-dbcjna-1.31.1.1.jar',
             'CEAPI/lib/jna-3.5.2.jar',
             'CEAPI/lib/platform-3.5.2.jar',
-            'CEAPI/config/symbols.csv',
             'CEAPI/bin/PortLib_64VC17.dll',
             'CEAPI/bin/dbcapi_64VC17.dll'
           )
@@ -73,13 +73,6 @@ jobs:
               throw "Required build artifact missing: $path"
             }
           }
-
-          $symbolsCsv = [IO.File]::ReadAllText((Resolve-Path 'CEAPI/config/symbols.csv'))
-          $symbols = @($symbolsCsv -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique)
-          if ($symbols.Count -lt 3800) {
-            throw "The embedded symbol fallback contains only $($symbols.Count) unique symbols; refusing to deploy."
-          }
-          Write-Host "Validated $($symbols.Count) unique fallback symbols."
 
       - name: Set up Java 17
         uses: actions/setup-java@v5
@@ -96,7 +89,7 @@ jobs:
         shell: pwsh
         run: |
           # The unit tests read settings from the environment, so they must not see this job's real ICE values.
-          Remove-Item Env:ICE_HOST, Env:ICE_USERNAME, Env:ICE_PASSWORD, Env:SYMBOLS_URL -ErrorAction SilentlyContinue
+          Remove-Item Env:ICE_HOST, Env:ICE_USERNAME, Env:ICE_PASSWORD, Env:ICE_SYMBOLS, Env:SYMBOLS_URL -ErrorAction SilentlyContinue
           gradle --project-dir CEAPI --no-daemon test installDist
           if ($LASTEXITCODE -ne 0) {
             throw "Gradle test/installDist failed with exit code $LASTEXITCODE"
@@ -142,6 +135,7 @@ jobs:
               iceHost="$env:ICE_HOST" `
               iceUsername="$env:ICE_USERNAME" `
               icePassword="$env:ICE_PASSWORD" `
+              symbols="$env:ICE_SYMBOLS" `
               symbolsUrl="$env:SYMBOLS_URL" `
               vnetName='BraemarSecurities-Development-VNET'
 
@@ -173,6 +167,7 @@ jobs:
               iceHost="$env:ICE_HOST" `
               iceUsername="$env:ICE_USERNAME" `
               icePassword="$env:ICE_PASSWORD" `
+              symbols="$env:ICE_SYMBOLS" `
               symbolsUrl="$env:SYMBOLS_URL" `
               vnetName='BraemarSecurities-Development-VNET'
 
@@ -191,27 +186,6 @@ jobs:
             --resource-group "$env:RESOURCE_GROUP" `
             --name "$env:APPSERVICE_NAME" `
             --settings "Ice__Endpoint=$privateIp"
-
-      - name: Allow CEAPI NAT egress to refresh symbols
-        shell: pwsh
-        run: |
-          $natIp = az network public-ip show `
-            --resource-group "$env:RESOURCE_GROUP" `
-            --name 'atlas-ceapi-nat-ip' `
-            --query ipAddress `
-            --output tsv
-          if ([string]::IsNullOrWhiteSpace($natIp)) {
-            throw 'The CEAPI NAT Gateway public IP address was not found.'
-          }
-
-          az webapp config access-restriction add `
-            --resource-group "$env:RESOURCE_GROUP" `
-            --name "$env:APPSERVICE_NAME" `
-            --rule-name 'Allow-CEAPI-NAT' `
-            --action Allow `
-            --ip-address "$natIp/32" `
-            --priority 200 `
-            --only-show-errors
 
       - name: Show CEAPI container state
         if: ${{ success() }}
