@@ -1,0 +1,67 @@
+name: CEAPI - Restart existing ICE session
+
+# Use only after an operator has resolved a terminal ICE session error.
+# Restarts the existing container; does not build, recreate or change configuration.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_restart:
+        description: Confirm a brief relay interruption to open a fresh ICE session
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  restart:
+    if: ${{ inputs.confirm_restart }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    concurrency:
+      group: ceapi-manual-restart
+      cancel-in-progress: false
+    env:
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+      CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+    steps:
+      - name: Azure login using service principal
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Restart CEAPI and verify container readiness
+        shell: bash
+        run: |
+          previous_ip=$(az container show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CEAPI_CONTAINER_GROUP" \
+            --query ipAddress.ip --output tsv)
+          if [ -z "$previous_ip" ]; then
+            echo "::error::CEAPI has no private IP; restart aborted."
+            exit 1
+          fi
+          az container restart \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CEAPI_CONTAINER_GROUP"
+          for attempt in $(seq 1 24); do
+            state=$(az container show \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$CEAPI_CONTAINER_GROUP" \
+              --query "containers[0].instanceView.currentState.state" --output tsv)
+            if [ "$state" = "Running" ]; then
+              current_ip=$(az container show \
+                --resource-group "$RESOURCE_GROUP" \
+                --name "$CEAPI_CONTAINER_GROUP" \
+                --query ipAddress.ip --output tsv)
+              if [ "$current_ip" != "$previous_ip" ]; then
+                echo "::error::CEAPI IP changed from $previous_ip to $current_ip. Update Ice__Endpoint before claiming recovery."
+                exit 1
+              fi
+              echo "Container running at $current_ip. Verify relay heartbeats and live quotes separately."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::CEAPI did not reach Running state within the readiness timeout."
+          exit 1
