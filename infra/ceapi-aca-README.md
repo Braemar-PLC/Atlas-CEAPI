@@ -38,3 +38,20 @@ Infrastructure success is not feed success. Verify a current relay heartbeat, `s
 advancing `lastQuoteAt`, the trial subscription count, and stability for at least ten minutes.
 The trial does not bypass ICE terminal errors such as `DBCAPI_ERROR_ADDRESS_CHANGE`.
 Retain ACI for rollback until sustained live verification is complete.
+
+## Trial result (2026-10-02)
+
+Deployment run `37015126359` completed the private cutover successfully. The Web App
+was configured for `10.10.15.17:9002`, using the environment ingress IP; ACI was stopped
+and retained, together with its NAT resources.
+
+ACA subscribed to all 4,056 symbols at 13:53:01 UTC, then reported
+`DBCAPI_ERROR_ADDRESS_CHANGE` at 13:53:46 UTC (approximately 45 seconds later).
+The Linux image and private relay path reached ICE subscription, but the migration
+did not resolve the recurring ICE session rejection. Sustained live feed verification
+has therefore failed; do not remove the rollback resources or treat deployment
+success as resolution of the feed issue.
+
+The deployment workflow is manual-only after the initial trial. Backend-aware deployment
+and ACI restart safeguards remain on `ceapi-linux-validation` until merged into `Dev`.
+Do not run the old `Dev` ACI deployment or restart workflows while ACA is active.
