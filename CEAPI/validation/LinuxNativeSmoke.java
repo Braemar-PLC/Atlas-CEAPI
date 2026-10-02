@@ -2,7 +2,7 @@ import com.esignal.jstandard.jna.DbcAPI;
 import com.esignal.jstandard.managers.ResourceManagerFactory;
 
 public final class LinuxNativeSmoke {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         if (!System.getProperty("os.name").equals("Linux")) {
             throw new IllegalStateException("This validation requires Linux");
         }
