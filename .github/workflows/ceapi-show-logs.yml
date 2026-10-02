@@ -32,6 +32,27 @@ jobs:
             --query "{state:instanceView.state, ip:ipAddress.ip, addressType:ipAddress.type, ports:ipAddress.ports, containers:containers[].{name:name,current:instanceView.currentState,previous:instanceView.previousState,restarts:instanceView.restartCount}, events:containers[0].instanceView.events}" \
             --output json
 
+      - name: Query ACA runtime and recent ICE lifecycle
+        shell: bash
+        run: |
+          backend=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
+            --query "[?name=='CEAPI_BACKEND'].value | [0]" -o tsv)
+          if [ "$backend" != aca ]; then
+            echo "ACA diagnostics skipped: selected backend is $backend."
+            exit 0
+          fi
+          az extension add --name containerapp --only-show-errors
+          az containerapp show -g "$RESOURCE_GROUP" -n atlas-ceapi-aca \
+            --query "{state:properties.runningStatus,readyRevision:properties.latestReadyRevisionName,latestRevision:properties.latestRevisionName}" -o json
+          az containerapp revision list -g "$RESOURCE_GROUP" -n atlas-ceapi-aca \
+            --query "[].{name:name,active:properties.active,health:properties.healthState,replicas:properties.replicas}" -o json
+          workspace=$(az monitor log-analytics workspace show -g "$RESOURCE_GROUP" \
+            -n atlas-law --query customerId -o tsv)
+          az monitor log-analytics query --workspace "$workspace" \
+            --analytics-query "ContainerAppConsoleLogs_CL | where TimeGenerated > ago(30m) and ContainerAppName_s == 'atlas-ceapi-aca' | where Log_s contains 'ICE connected:' or Log_s contains 'ICE disconnect' or Log_s contains 'ICE connecting' or Log_s contains 'ICE reconnect' or Log_s contains 'ICE error:' or Log_s contains 'WebSocket client' or Log_s contains 'Subscribed to ' or Log_s contains 'Failed to connect' or Log_s contains 'Reopening' | order by TimeGenerated asc | project TimeGenerated, Log_s | take 100" -o json
+          az monitor log-analytics query --workspace "$workspace" \
+            --analytics-query "ContainerAppConsoleLogs_CL | where TimeGenerated > ago(30m) and ContainerAppName_s == 'atlas-ceapi-aca' | summarize latestLog=max(TimeGenerated), lines=count() by bin(TimeGenerated, 1m) | order by TimeGenerated desc | take 10" -o json
+
       - name: Show Web App private relay configuration
         shell: bash
         run: |
@@ -43,7 +64,7 @@ jobs:
           az webapp config appsettings list \
             --resource-group "$RESOURCE_GROUP" \
             --name "$APPSERVICE_NAME" \
-            --query "[?name=='Ice__Endpoint' || name=='Ice__Port' || name=='WEBSITE_VNET_ROUTE_ALL'].{name:name,value:value}" \
+            --query "[?name=='Ice__Endpoint' || name=='Ice__Port' || name=='WEBSITE_VNET_ROUTE_ALL' || name=='CEAPI_BACKEND'].{name:name,value:value}" \
             --output json
 
       - name: Query Web App relay connection errors
