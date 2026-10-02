@@ -2,6 +2,11 @@ name: CEAPI - Build and Deploy to ACI
 
 on:
   workflow_dispatch:
+    inputs:
+      rollback_from_aca:
+        description: 'Explicit return to ACI; requires ACA app to be deleted'
+        type: boolean
+        default: false
   push:
     branches: [ Dev ]
     paths:
@@ -9,6 +14,10 @@ on:
       - 'infra/ceapi-aci.bicep'
       - 'infra/ceapi-aci-README.md'
       - '.github/workflows/ceapi-aci-build-deploy.yml'
+
+concurrency:
+  group: ceapi-relay-cutover
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
@@ -28,6 +37,7 @@ jobs:
       ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
       ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
       ICE_SYMBOLS: ${{ secrets.ICE_SYMBOLS }}
+      ROLLBACK_FROM_ACA: ${{ inputs.rollback_from_aca }}
 
     steps:
       - name: Checkout repository
@@ -45,7 +55,16 @@ jobs:
             --resource-group "$env:RESOURCE_GROUP" --name "$env:APPSERVICE_NAME" `
             --query "[?name=='CEAPI_BACKEND'].value | [0]" --output tsv
           if ($LASTEXITCODE -ne 0) { throw 'Could not check selected CEAPI backend.' }
-          if ($backend -eq 'aca') { throw 'ACA is selected. Roll back explicitly before deploying ACI.' }
+          $aca = az resource list --resource-group "$env:RESOURCE_GROUP" `
+            --resource-type Microsoft.App/containerApps `
+            --query "[?name=='atlas-ceapi-aca'].id | [0]" --output tsv
+          if ($LASTEXITCODE -ne 0) { throw 'Could not check for an existing ACA relay.' }
+          if (-not [string]::IsNullOrWhiteSpace($aca)) {
+            throw 'The ACA relay still exists. Delete it before this controlled return to ACI.'
+          }
+          if ($backend -eq 'aca' -and $env:ROLLBACK_FROM_ACA -ne 'true') {
+            throw 'ACA is selected. Approve the manual rollback_from_aca input before deploying ACI.'
+          }
 
       - name: Ensure ACR exists
         shell: pwsh
@@ -164,6 +183,7 @@ jobs:
             --yes `
             --output none `
             2>$null
+          if ($LASTEXITCODE -ne 0) { throw 'Could not delete the previous ACI group; refusing to deploy over it.' }
 
           $image = "$env:ACR_NAME.azurecr.io/ceapi:$env:CEAPI_IMAGE_TAG"
           az deployment group create `
@@ -181,6 +201,7 @@ jobs:
               icePassword="$env:ICE_PASSWORD" `
               symbols="$env:ICE_SYMBOLS" `
               vnetName='BraemarSecurities-Development-VNET'
+          if ($LASTEXITCODE -ne 0) { throw 'ACI deployment failed.' }
 
       - name: Point the Web App at the private CEAPI address
         shell: pwsh
@@ -190,13 +211,17 @@ jobs:
             --name "$env:CEAPI_CONTAINER_GROUP" `
             --query "ipAddress.ip" `
             --output tsv
+          if ($LASTEXITCODE -ne 0) { throw 'Could not retrieve the ACI private IP.' }
           if ([string]::IsNullOrWhiteSpace($privateIp)) {
             throw 'The private CEAPI IP address was not assigned.'
           }
           az webapp config appsettings set `
             --resource-group "$env:RESOURCE_GROUP" `
             --name "$env:APPSERVICE_NAME" `
-            --settings "Ice__Endpoint=$privateIp"
+            --settings "Ice__Endpoint=$privateIp" "Ice__Port=9002" "CEAPI_BACKEND=aci" `
+            --output none
+          if ($LASTEXITCODE -ne 0) { throw 'Could not switch Web App to ACI.' }
+          Write-Host "Web App configured for private ACI endpoint ${privateIp}:9002"
 
       - name: Show CEAPI container state
         if: ${{ success() }}

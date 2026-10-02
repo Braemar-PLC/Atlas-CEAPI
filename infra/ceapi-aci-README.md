@@ -78,6 +78,11 @@ The GitHub Action does the following:
 5. deploys `infra/ceapi-aci.bicep` to create or update the container group
 6. injects the ICE credentials and operator-configured `SYMBOLS` as runtime environment variables
 
+To return from a deleted ACA relay, manually dispatch with `rollback_from_aca=true`.
+The workflow verifies the ACA app is absent before activating ACI, and sets both the
+private endpoint/port and `CEAPI_BACKEND=aci` on the Web App. Normal deploys remain blocked
+when ACA is selected. ACI and ACA cutovers share a concurrency group.
+
 ## Important
 
 - The real ICE credentials must not be stored in GitHub source code.
