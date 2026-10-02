@@ -2,8 +2,12 @@ name: CEAPI - Validate Linux image
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ceapi-linux-validation]
+    inputs:
+      publish_image:
+        description: Publish the validated image to the existing ACR (no deployment)
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -36,6 +40,45 @@ jobs:
             -e ICE_PASSWORD=offline-validation \
             ceapi-linux:validation
           timeout 90 docker exec ceapi-linux-validation java /app/validation/LinuxRelaySmoke.java
+      - name: Azure login for approved image publishing
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_image }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Publish validated image and verify registry digest
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_image }}
+        shell: bash
+        env:
+          ACR_NAME: ${{ secrets.ACR_NAME }}
+        run: |
+          registry=$(az acr show --name "$ACR_NAME" --query loginServer --output tsv)
+          if [ -z "$registry" ]; then
+            echo "::error::Existing ACR login server could not be resolved."
+            exit 1
+          fi
+          image="$registry/ceapi-linux:$GITHUB_SHA"
+          az acr login --name "$ACR_NAME"
+          docker tag ceapi-linux:validation "$image"
+          docker push "$image"
+          digest=$(az acr repository show --name "$ACR_NAME" \
+            --image "ceapi-linux:$GITHUB_SHA" --query digest --output tsv)
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Published manifest digest is missing or invalid."
+            exit 1
+          fi
+          docker pull "$registry/ceapi-linux@$digest"
+          timeout 60 docker run --rm --network none "$registry/ceapi-linux@$digest" \
+            java -Djna.library.path=/app/native -cp '/app/lib/*' /app/validation/LinuxNativeSmoke.java
+          {
+            echo "## Validated Linux image published"
+            echo
+            echo "- Image: \`$image\`"
+            echo "- Immutable reference: \`$registry/ceapi-linux@$digest\`"
+            echo "- Native SDK smoke test passed against the published digest."
+            echo "- No Azure application was deployed or restarted."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "PUBLISHED_IMAGE=$image"
+          echo "PUBLISHED_DIGEST=$digest"
       - name: Show validation logs and clean up
         if: always()
         shell: bash

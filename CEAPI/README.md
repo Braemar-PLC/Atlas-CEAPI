@@ -73,8 +73,12 @@ last prices looking live.
 Run the manual **CEAPI - Validate Linux image** GitHub workflow on `Dev`. It runs Java tests,
 builds `Dockerfile.linux` for Linux amd64, checks native shared-library dependencies, and loads
 the actual ICE native API and creates a QuoteManager with container networking disabled.
-It also verifies that the relay starts on port 9002. It does not use real ICE credentials,
-connect to ICE, publish an image, or change Azure resources.
+It also verifies that the relay starts on port 9002. It does not use real ICE credentials
+or connect to ICE. By default it does not publish an image or change Azure resources.
+To publish, manually run the workflow with `publish_image=true`. After validation succeeds,
+it pushes `ceapi-linux:<commit SHA>` to the existing ACR, verifies the manifest digest, and
+repeats the native SDK smoke test against the published image. The immutable image reference
+is recorded in the workflow summary. Publishing never deploys or restarts ACI or ACA.
 
 The Linux image uses `/app/native` for both JNA loading and native dependency resolution,
 and `/app/config/symbols.csv` for the fallback symbols. It runs as a non-root user.
