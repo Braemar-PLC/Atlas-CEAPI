@@ -4,6 +4,7 @@ using Atlas.Web.Ice.Domain.Services;
 using Atlas.Web.Ice.Tests.Fakes;
 using Atlas.Web.Ice.WebSocket;
 using Atlas.Web.Core.Domain.Logic;
+using Atlas.Web.Core.Domain.Enumeration;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -205,6 +206,48 @@ public class IceReceiverTests
         await sut.StopAsync(CancellationToken.None);
 
         good.ConnectedUri.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReceiveLoop_WhenRelayRestarts_AcceptsHealthFromNewProcess(bool serverCloses)
+    {
+        const string previousStatus = """
+            ["status",{"state":"LIVE","generation":5,"timestamp":"2026-10-02T09:00:00Z","detail":"Previous process","subscribedSymbols":4056}]
+            """;
+        const string restartedStatus = """
+            ["status",{"state":"DISCONNECTED","generation":1,"timestamp":"2026-10-02T09:00:05Z","detail":"ICE disconnected: DBCAPI_ERROR_ADDRESS_CHANGE","subscribedSymbols":3866}]
+            """;
+        IWebSocketClient firstClient = serverCloses
+            ? new ServerClosingWebSocketClient(previousStatus)
+            : new DroppingWebSocketClient(previousStatus);
+        var secondClient = FakeWebSocketClient.FromString(restartedStatus);
+        var factory = new FakeWebSocketClientFactory(firstClient, secondClient);
+        using var health = new FeedHealthStore(TimeProvider.System, TimeSpan.FromSeconds(15));
+        var received = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = health.GetStream().Subscribe(snapshot =>
+        {
+            if (snapshot.Generation == 1 && snapshot.State == FeedState.Disconnected)
+            {
+                received.TrySetResult();
+            }
+        });
+        var sut = new IceReceiver(factory, new Mock<IIceMessageProcessor>().Object, health, DefaultOptions());
+        await sut.StartAsync(CancellationToken.None);
+        try
+        {
+            await received.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            secondClient.ConnectedUri.Should().NotBeNull();
+            health.Current().Generation.Should().Be(1);
+            health.Current().Detail.Should().Be("ICE disconnected: DBCAPI_ERROR_ADDRESS_CHANGE");
+            health.Current().SubscribedSymbols.Should().Be(3866);
+        }
+        finally
+        {
+            await sut.StopAsync(CancellationToken.None);
+        }
     }
 
     /// <summary>A relay that accepts nothing and refuses nothing, as one being replaced can.</summary>
