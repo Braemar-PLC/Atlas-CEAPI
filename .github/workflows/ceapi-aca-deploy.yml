@@ -2,6 +2,10 @@ name: CEAPI - Deploy private ACA trial
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ceapi-linux-validation]
+    paths:
+      - '.github/workflows/ceapi-aca-deploy.yml'
 
 permissions:
   contents: read
