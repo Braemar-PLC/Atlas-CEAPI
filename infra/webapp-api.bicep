@@ -30,6 +30,12 @@ param iceEndpoint string
 @description('Port of the CEAPI WebSocket endpoint.')
 param icePort int = 9002
 
+@allowed([
+  'aci'
+  'aca'
+])
+param ceapiBackend string = 'aci'
+
 @description('ASP.NET Core environment name.')
 param aspNetCoreEnvironment string = 'Production'
 
@@ -119,6 +125,10 @@ resource appService 'Microsoft.Web/sites@2024-04-01' = {
         {
           name: 'Ice__Port'
           value: string(icePort)
+        }
+        {
+          name: 'CEAPI_BACKEND'
+          value: ceapiBackend
         }
         {
           name: 'Database__Path'

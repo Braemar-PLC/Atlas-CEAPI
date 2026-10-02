@@ -39,6 +39,15 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Prevent accidental ACI deployment after ACA cutover
+        shell: pwsh
+        run: |
+          $backend = az webapp config appsettings list `
+            --resource-group "$env:RESOURCE_GROUP" --name "$env:APPSERVICE_NAME" `
+            --query "[?name=='CEAPI_BACKEND'].value | [0]" --output tsv
+          if ($LASTEXITCODE -ne 0) { throw 'Could not check selected CEAPI backend.' }
+          if ($backend -eq 'aca') { throw 'ACA is selected. Roll back explicitly before deploying ACI.' }
+
       - name: Ensure ACR exists
         shell: pwsh
         run: |

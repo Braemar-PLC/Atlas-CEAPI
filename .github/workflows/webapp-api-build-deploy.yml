@@ -49,15 +49,25 @@ jobs:
             fi
           done
 
-          endpoint=$(az container show \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$CEAPI_CONTAINER_GROUP" \
-            --query "ipAddress.ip" -o tsv)
+          backend=$(az webapp config appsettings list \
+            --resource-group "$RESOURCE_GROUP" --name "$APPSERVICE_NAME" \
+            --query "[?name=='CEAPI_BACKEND'].value | [0]" -o tsv)
+          if [ "$backend" = aca ]; then
+            endpoint=$(az resource show --resource-group "$RESOURCE_GROUP" \
+              --resource-type Microsoft.App/managedEnvironments --name atlas-ceapi-aca-env \
+              --api-version 2025-01-01 --query properties.staticIp -o tsv)
+          else
+            endpoint=$(az container show \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$CEAPI_CONTAINER_GROUP" \
+              --query "ipAddress.ip" -o tsv)
+          fi
           if [ -z "$endpoint" ]; then
-            echo "Could not resolve CEAPI private IP; is $CEAPI_CONTAINER_GROUP deployed?" >&2
+            echo "Could not resolve the selected CEAPI backend's private IP." >&2
             exit 1
           fi
           echo "endpoint=$endpoint" >> "$GITHUB_OUTPUT"
+          echo "backend=${backend:-aci}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -112,6 +122,7 @@ jobs:
               appServicePlanName="$APPSERVICE_PLAN" \
               appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
               iceEndpoint="${{ steps.ceapi.outputs.endpoint }}" \
+              ceapiBackend="${{ steps.ceapi.outputs.backend }}" \
               vnetName='BraemarSecurities-Development-VNET' \
               entraTenantId="$ENTRA_TENANT_ID" \
               entraClientId="$ENTRA_CLIENT_ID" \
@@ -130,6 +141,7 @@ jobs:
               appServicePlanName="$APPSERVICE_PLAN" \
               appServicePlanResourceGroup="$APPSERVICE_PLAN_RESOURCE_GROUP" \
               iceEndpoint="${{ steps.ceapi.outputs.endpoint }}" \
+              ceapiBackend="${{ steps.ceapi.outputs.backend }}" \
               vnetName='BraemarSecurities-Development-VNET' \
               entraTenantId="$ENTRA_TENANT_ID" \
               entraClientId="$ENTRA_CLIENT_ID" \

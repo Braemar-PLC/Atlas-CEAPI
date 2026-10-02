@@ -1,0 +1,174 @@
+name: CEAPI - Deploy private ACA trial
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ceapi-relay-cutover
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+      ACR_NAME: ${{ secrets.ACR_NAME }}
+      CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+      APPSERVICE_NAME: ${{ secrets.APPSERVICE_NAME }}
+      ACA_ENV: atlas-ceapi-aca-env
+      ACA_APP: atlas-ceapi-aca
+      IMAGE_DIGEST: sha256:56371cc1d55c156b0f07fe1d10e0d990099be383f6414903e715c377c0d9ec83
+    steps:
+      - uses: actions/checkout@v5
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Verify image, subnet and backend before cutover
+        id: preflight
+        shell: bash
+        run: |
+          az extension add --name containerapp --only-show-errors
+          az provider register --namespace Microsoft.App --wait
+          registry=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+          az acr repository show --name "$ACR_NAME" --image "ceapi-linux@$IMAGE_DIGEST" --output none
+          echo "image=$registry/ceapi-linux@$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
+          backend=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
+            --query "[?name=='CEAPI_BACKEND'].value | [0]" -o tsv)
+          if [ "$backend" = aca ]; then
+            echo "::error::ACA is already the selected backend. This first-cutover workflow must not replace an active ICE session."
+            exit 1
+          fi
+          old_ip=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
+            --query "[?name=='Ice__Endpoint'].value | [0]" -o tsv)
+          old_port=$(az webapp config appsettings list -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
+            --query "[?name=='Ice__Port'].value | [0]" -o tsv)
+          test -n "$old_ip" && test -n "$old_port"
+          echo "old_ip=$old_ip" >> "$GITHUB_OUTPUT"
+          echo "old_port=$old_port" >> "$GITHUB_OUTPUT"
+          az network vnet show -g "$RESOURCE_GROUP" -n BraemarSecurities-Development-VNET -o json > "$RUNNER_TEMP/vnet.json"
+          python - "$RUNNER_TEMP/vnet.json" <<'PY'
+          import json, ipaddress, sys
+          vnet = json.load(open(sys.argv[1]))
+          proposed = ipaddress.ip_network("10.10.15.0/27")
+          if not any(proposed.subnet_of(ipaddress.ip_network(p)) for p in vnet["addressSpace"]["addressPrefixes"]):
+              raise SystemExit("ACA subnet is outside VNet address space")
+          for subnet in vnet.get("subnets", []):
+              prefixes = subnet.get("addressPrefixes") or [subnet["addressPrefix"]]
+              if any(proposed.overlaps(ipaddress.ip_network(p)) for p in prefixes):
+                  if subnet["name"] == "CEAPI-ACA" and prefixes == [str(proposed)] and not subnet.get("natGateway") and not subnet.get("routeTable"):
+                      continue
+                  raise SystemExit("ACA subnet overlaps existing subnet: " + subnet["name"])
+          print("PASS: ACA subnet is in range and does not overlap existing subnets")
+          PY
+      - name: Preview and create private environment
+        shell: bash
+        run: |
+          az deployment group what-if -g "$RESOURCE_GROUP" \
+            --template-file infra/ceapi-aca-environment.bicep --parameters location=uksouth
+          az deployment group create -g "$RESOURCE_GROUP" \
+            --name "ceapi-aca-env-$GITHUB_RUN_ID" \
+            --template-file infra/ceapi-aca-environment.bicep --parameters location=uksouth --output none
+      - name: Prepare secure app parameters and preview
+        shell: bash
+        env:
+          ICE_HOST: ${{ secrets.ICE_HOST }}
+          ICE_USERNAME: ${{ secrets.ICE_USERNAME }}
+          ICE_PASSWORD: ${{ secrets.ICE_PASSWORD }}
+          CONTAINER_IMAGE: ${{ steps.preflight.outputs.image }}
+        run: |
+          python - <<'PY'
+          import os, json
+          names = {"acrName":"ACR_NAME", "containerImage":"CONTAINER_IMAGE",
+                   "iceHost":"ICE_HOST", "iceUsername":"ICE_USERNAME", "icePassword":"ICE_PASSWORD"}
+          params = {p: {"value": os.environ[e]} for p,e in names.items()}
+          params["location"] = {"value": "uksouth"}
+          if any(not p["value"] for p in params.values()):
+              raise SystemExit("Required app parameter is empty")
+          path = os.path.join(os.environ["RUNNER_TEMP"], "aca-parameters.json")
+          with open(path, "w") as f:
+              json.dump({"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+                         "contentVersion":"1.0.0.0","parameters":params}, f)
+          os.chmod(path, 0o600)
+          PY
+          az deployment group what-if -g "$RESOURCE_GROUP" \
+            --template-file infra/ceapi-aca.bicep --parameters @"$RUNNER_TEMP/aca-parameters.json"
+      - name: Stop ACI before activating ACA
+        id: stop_aci
+        shell: bash
+        run: |
+          echo "stopping=true" >> "$GITHUB_OUTPUT"
+          az container stop -g "$RESOURCE_GROUP" -n "$CEAPI_CONTAINER_GROUP"
+          state=$(az container show -g "$RESOURCE_GROUP" -n "$CEAPI_CONTAINER_GROUP" --query instanceView.state -o tsv)
+          if [ "$state" != Stopped ]; then
+            echo "::error::ACI is not confirmed stopped; aborting ACA activation."
+            exit 1
+          fi
+      - name: Deploy ACA and wait for private relay readiness
+        shell: bash
+        run: |
+          az deployment group create -g "$RESOURCE_GROUP" \
+            --name "ceapi-aca-app-$GITHUB_RUN_ID" \
+            --template-file infra/ceapi-aca.bicep \
+            --parameters @"$RUNNER_TEMP/aca-parameters.json" --output none
+          for attempt in $(seq 1 30); do
+            ready=$(az containerapp show -g "$RESOURCE_GROUP" -n "$ACA_APP" \
+              --query properties.latestReadyRevisionName -o tsv)
+            if [ -n "$ready" ]; then
+              echo "Ready revision: $ready"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::ACA revision did not become ready."
+          exit 1
+      - name: Point Web App to ACA private IP on 9002
+        shell: bash
+        run: |
+          ip=$(az containerapp env show -g "$RESOURCE_GROUP" -n "$ACA_ENV" \
+            --query properties.staticIp -o tsv)
+          python - "$ip" <<'PY'
+          import ipaddress, sys
+          if not ipaddress.ip_address(sys.argv[1]).is_private:
+              raise SystemExit("ACA ingress address is not private")
+          PY
+          az webapp config appsettings set -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
+            --settings "Ice__Endpoint=$ip" "Ice__Port=9002" "CEAPI_BACKEND=aca" --output none
+          echo "Web App configured for private ACA endpoint $ip:9002"
+          echo "ACA_PRIVATE_IP=$ip" >> "$GITHUB_STEP_SUMMARY"
+      - name: Observe fresh ICE lifecycle
+        continue-on-error: true
+        shell: bash
+        run: |
+          sleep 60
+          az containerapp logs show -g "$RESOURCE_GROUP" -n "$ACA_APP" --type console --tail 100
+          sleep 60
+          az containerapp logs show -g "$RESOURCE_GROUP" -n "$ACA_APP" --type console --tail 100
+          echo "Infrastructure cutover complete. Verify authenticated feed health and advancing quote timestamps separately." >> "$GITHUB_STEP_SUMMARY"
+      - name: Roll back failed cutover without parallel ICE sessions
+        if: ${{ failure() && steps.stop_aci.outputs.stopping == 'true' }}
+        shell: bash
+        run: |
+          exists=$(az resource list -g "$RESOURCE_GROUP" --resource-type Microsoft.App/containerApps \
+            --query "[?name=='$ACA_APP'].id | [0]" -o tsv)
+          if [ -n "$exists" ]; then
+            for revision in $(az containerapp revision list -g "$RESOURCE_GROUP" -n "$ACA_APP" \
+              --query "[?properties.active].name" -o tsv); do
+              az containerapp revision deactivate -g "$RESOURCE_GROUP" -n "$ACA_APP" --revision "$revision"
+            done
+            active=$(az containerapp revision list -g "$RESOURCE_GROUP" -n "$ACA_APP" \
+              --query "length([?properties.active])" -o tsv)
+            test "$active" = 0
+            sleep 30
+          fi
+          az container start -g "$RESOURCE_GROUP" -n "$CEAPI_CONTAINER_GROUP"
+          az webapp config appsettings set -g "$RESOURCE_GROUP" -n "$APPSERVICE_NAME" \
+            --settings "Ice__Endpoint=${{ steps.preflight.outputs.old_ip }}" \
+              "Ice__Port=${{ steps.preflight.outputs.old_port }}" "CEAPI_BACKEND=aci" --output none
+      - name: Remove temporary secret parameter file
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/aca-parameters.json"

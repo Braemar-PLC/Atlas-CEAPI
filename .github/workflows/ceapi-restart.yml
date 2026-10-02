@@ -24,6 +24,7 @@ jobs:
     env:
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+      APPSERVICE_NAME: ${{ secrets.APPSERVICE_NAME }}
     steps:
       - name: Azure login using service principal
         uses: azure/login@v2
@@ -33,6 +34,13 @@ jobs:
       - name: Restart CEAPI and verify container readiness
         shell: bash
         run: |
+          backend=$(az webapp config appsettings list \
+            --resource-group "$RESOURCE_GROUP" --name "$APPSERVICE_NAME" \
+            --query "[?name=='CEAPI_BACKEND'].value | [0]" --output tsv)
+          if [ "$backend" = aca ]; then
+            echo "::error::ACA is selected; do not restart ACI in parallel."
+            exit 1
+          fi
           previous_ip=$(az container show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CEAPI_CONTAINER_GROUP" \
