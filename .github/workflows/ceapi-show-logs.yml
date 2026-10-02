@@ -63,6 +63,47 @@ jobs:
             --analytics-query "exceptions | where timestamp > ago(2h) | where outerMessage contains 'CEAPI' or innermostMessage contains '10.10.14.4' | top 20 by timestamp desc | project timestamp, outerMessage, innermostMessage, cloud_RoleInstance" \
             --output json
 
+      - name: Show potential duplicate relays and CEAPI outbound routing
+        shell: bash
+        run: |
+          echo "--- Container groups in the authenticated subscription (no credentials) ---"
+          az container list \
+            --query "[].{name:name,resourceGroup:resourceGroup,state:instanceView.state,ip:ipAddress.ip,images:containers[].image}" \
+            --output json
+          subnet_id=$(az container show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$CEAPI_CONTAINER_GROUP" \
+            --query "subnetIds[0].id" --output tsv)
+          if [ -z "$subnet_id" ]; then
+            echo "::error::CEAPI is not attached to a subnet."
+            exit 1
+          fi
+          az network vnet subnet show --ids "$subnet_id" \
+            --query "{prefix:addressPrefix,natGateway:natGateway.id,routeTable:routeTable.id,nsg:networkSecurityGroup.id,defaultOutboundAccess:defaultOutboundAccess}" \
+            --output json
+          nat_id=$(az network vnet subnet show --ids "$subnet_id" \
+            --query natGateway.id --output tsv)
+          if [ -z "$nat_id" ]; then
+            echo "::error::CEAPI subnet has no NAT Gateway."
+            exit 1
+          fi
+          az network nat gateway show --ids "$nat_id" \
+            --query "{state:provisioningState,publicIPs:publicIpAddresses[].id,publicIPPrefixes:publicIpPrefixes[].id}" \
+            --output json
+          for ip_id in $(az network nat gateway show --ids "$nat_id" \
+            --query "publicIpAddresses[].id" --output tsv); do
+            az network public-ip show --ids "$ip_id" \
+              --query "{name:name,ip:ipAddress,allocation:publicIPAllocationMethod,state:provisioningState}" \
+              --output json
+          done
+          route_id=$(az network vnet subnet show --ids "$subnet_id" \
+            --query routeTable.id --output tsv)
+          if [ -n "$route_id" ]; then
+            az network route-table show --ids "$route_id" \
+              --query "{name:name,routes:routes[].{prefix:addressPrefix,nextHop:nextHopType,nextHopIP:nextHopIpAddress}}" \
+              --output json
+          fi
+
       - name: Show CEAPI container logs (az container logs — not supported for Windows containers, expect empty)
         shell: bash
         run: |
