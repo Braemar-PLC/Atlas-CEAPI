@@ -1,8 +1,7 @@
 name: CEAPI - Show container logs
 
-# Manual diagnostic workflow: dumps the current CEAPI container logs without touching the
-# build/deploy pipeline. Use this to inspect ICE connection status (IceConnectionManager logs
-# "ICE connecting...", "ICE connected: <host>", or "ICE error: <status>" on every attempt).
+# Read-only manual diagnostics for container state, private relay configuration,
+# Web App connection failures and ICE lifecycle events. Does not restart or deploy.
 on:
   workflow_dispatch:
 
@@ -16,6 +15,7 @@ jobs:
     env:
       RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
       CEAPI_CONTAINER_GROUP: ${{ secrets.CEAPI_CONTAINER_GROUP }}
+      APPSERVICE_NAME: ${{ secrets.APPSERVICE_NAME }}
 
     steps:
       - name: Azure login using service principal
@@ -29,7 +29,38 @@ jobs:
           az container show \
             --resource-group "$RESOURCE_GROUP" \
             --name "$CEAPI_CONTAINER_GROUP" \
-            --query "{state:instanceView.state, ip:ipAddress.ip, fqdn:ipAddress.fqdn, events:containers[0].instanceView.events}" \
+            --query "{state:instanceView.state, ip:ipAddress.ip, addressType:ipAddress.type, ports:ipAddress.ports, containers:containers[].{name:name,current:instanceView.currentState,previous:instanceView.previousState,restarts:instanceView.restartCount}, events:containers[0].instanceView.events}" \
+            --output json
+
+      - name: Show Web App private relay configuration
+        shell: bash
+        run: |
+          az webapp show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$APPSERVICE_NAME" \
+            --query "{state:state, subnet:virtualNetworkSubnetId, routeAll:vnetRouteAllEnabled, outboundVnetRouting:outboundVnetRouting}" \
+            --output json
+          az webapp config appsettings list \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$APPSERVICE_NAME" \
+            --query "[?name=='Ice__Endpoint' || name=='Ice__Port' || name=='WEBSITE_VNET_ROUTE_ALL'].{name:name,value:value}" \
+            --output json
+
+      - name: Query Web App relay connection errors
+        continue-on-error: true
+        shell: bash
+        run: |
+          APP_ID=$(az monitor app-insights component show \
+            --resource-group "$RESOURCE_GROUP" \
+            --app atlas-api-ai \
+            --query appId -o tsv)
+          az monitor app-insights query \
+            --app "$APP_ID" \
+            --analytics-query "traces | where timestamp > ago(2h) | where message contains 'CEAPI relay' | top 30 by timestamp desc | project timestamp, message, severityLevel, cloud_RoleInstance" \
+            --output json
+          az monitor app-insights query \
+            --app "$APP_ID" \
+            --analytics-query "exceptions | where timestamp > ago(2h) | where outerMessage contains 'CEAPI' or innermostMessage contains '10.10.14.4' | top 20 by timestamp desc | project timestamp, outerMessage, innermostMessage, cloud_RoleInstance" \
             --output json
 
       - name: Show CEAPI container logs (az container logs — not supported for Windows containers, expect empty)
@@ -58,11 +89,15 @@ jobs:
             --workspace "$WORKSPACE_ID" \
             --analytics-query "ContainerInstanceLog_CL | where Message !contains 'Subscribed: ' and Message !contains 'ICE symbol event:' and Message !contains 'DBCAPI_ERROR_NOTCONNECTED' | top 300 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
             --output tsv || true
+          echo "--- Latest CEAPI connection lifecycle messages (excluding two-line logger headers) ---"
+          az monitor log-analytics query \
+            --workspace "$WORKSPACE_ID" \
+            --analytics-query "ContainerInstanceLog_CL | where Message contains 'ICE connected:' or Message contains 'ICE disconnecting:' or Message contains 'ICE disconnected:' or Message contains 'ICE connecting...' or Message contains 'ICE reconnecting...' or Message contains 'ICE error:' or Message contains 'WebSocket client' or Message contains 'Subscribed to ' or Message contains 'Failed to connect to ICE' or Message contains 'Reopening the ICE session' | top 40 by TimeGenerated desc | order by TimeGenerated asc | project TimeGenerated, Message" \
+            --output tsv
 
-      - name: Probe the relay port from outside
+      - name: Explain private relay probe scope
         shell: bash
         run: |
-          FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$CEAPI_CONTAINER_GROUP" --query ipAddress.fqdn -o tsv)
-          PORT=$(az container show --resource-group "$RESOURCE_GROUP" --name "$CEAPI_CONTAINER_GROUP" --query "ipAddress.ports[0].port" -o tsv)
-          echo "Relay: $FQDN:$PORT"
-          if timeout 5 bash -c "</dev/tcp/$FQDN/$PORT"; then echo "Relay port is OPEN"; else echo "Relay port is CLOSED or unreachable"; fi
+          echo "The GitHub runner is outside the VNet and cannot test the private CEAPI port."
+          echo "Run curl -v --connect-timeout 5 --max-time 10 http://10.10.14.4:9002/ from the App Service SSH terminal."
+          echo "Connected followed by WebSocket Upgrade Failure proves TCP reachability, not ICE connectivity."
