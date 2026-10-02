@@ -36,7 +36,11 @@ jobs:
         shell: bash
         run: |
           az extension add --name containerapp --only-show-errors
-          az provider register --namespace Microsoft.App --wait
+          provider_state=$(az provider show --namespace Microsoft.App --query registrationState -o tsv)
+          if [ "$provider_state" != Registered ]; then
+            echo "::error::Microsoft.App is $provider_state. A subscription administrator must register it before deploying ACA."
+            exit 1
+          fi
           registry=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
           az acr repository show --name "$ACR_NAME" --image "ceapi-linux@$IMAGE_DIGEST" --output none
           echo "image=$registry/ceapi-linux@$IMAGE_DIGEST" >> "$GITHUB_OUTPUT"
